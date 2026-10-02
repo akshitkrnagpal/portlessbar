@@ -20,4 +20,8 @@ Commands use temporary, user-only log files, deleted after completion. The app h
 
 ## Downloads
 
+Sparkle checks an HTTPS appcast hosted in this repository and downloads releases from GitHub. Automatic checks can be disabled in Settings; installation uses Sparkle's update prompt. Optional system-profile reporting is disabled. Update requests still expose ordinary HTTP connection information to the hosting provider.
+
+Update archives are verified with the Ed25519 public key embedded in the app and Apple code signing. Release builds are Developer ID signed and notarized. The Sparkle private key stays in the maintainer's Keychain; it is not stored in source control or Xcode Cloud. A manual GitHub download remains available if the updater fails.
+
 Check the signing/notarization statement and checksum supplied with each release. Developer ID signing and notarization are distinct. Do not disable macOS security protections globally to launch a download. For a trusted non-notarized local build, follow [Apple’s first-launch instructions](https://support.apple.com/en-us/102445).

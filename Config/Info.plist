@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>io.akshit.PortlessBar</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -28,5 +28,17 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Akshit Kr Nagpal.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/akshitkrnagpal/portlessbar/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>ZkB2c8BZ1vTG7oUMK5wXfYZKT7sMQnhBgJVCywh1nB4=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUSendProfileInfo</key>
+	<false/>
 </dict>
 </plist>

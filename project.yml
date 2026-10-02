@@ -2,6 +2,10 @@ name: PortlessBar
 options:
   deploymentTarget:
     macOS: '14.0'
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     SWIFT_VERSION: '6.0'
@@ -15,6 +19,11 @@ settings:
     SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/PortlessSystem/include
     ENABLE_HARDENED_RUNTIME: YES
     ENABLE_APP_SANDBOX: NO
+  configs:
+    Debug:
+      DEVELOPMENT_TEAM: ''
+      CODE_SIGN_IDENTITY: '-'
+      ENABLE_HARDENED_RUNTIME: NO
 targets:
   PortlessSystem:
     type: library.static
@@ -42,33 +51,27 @@ targets:
         buildPhase: resources
       - path: NOTICE
         buildPhase: resources
+      - path: Assets/Sparkle-LICENSE
+        buildPhase: resources
     dependencies:
       - target: PortlessSystem
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.akshit.PortlessBar
         PRODUCT_NAME: PortlessBar
-        ENABLE_TESTABILITY: YES
         COMBINE_HIDPI_IMAGES: YES
-    info:
-      path: Config/Info.plist
-      properties:
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        CFBundleDisplayName: PortlessBar
-        CFBundleName: PortlessBar
-        CFBundleIconFile: AppIcon
-        LSUIElement: true
-        NSHighResolutionCapable: true
-        NSHumanReadableCopyright: Copyright © 2026 Akshit Kr Nagpal.
+        INFOPLIST_FILE: Config/Info.plist
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+        Release:
+          ENABLE_TESTABILITY: NO
   PortlessBarTests:
     type: bundle.unit-test
     platform: macOS
     sources:
       - path: Tests/PortlessBarTests
-      - path: .cloud/TestTools
-        type: folder
-        buildPhase: resources
     dependencies:
       - target: PortlessBar
       - target: PortlessSystem
@@ -76,6 +79,17 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.akshit.PortlessBarTests
         GENERATE_INFOPLIST_FILE: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postCompileScripts:
+      - name: Optional live test tools
+        basedOnDependencyAnalysis: false
+        script: |
+          destination="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/TestTools"
+          if [ -d "$SRCROOT/.cloud/TestTools" ]; then
+            /usr/bin/ditto "$SRCROOT/.cloud/TestTools" "$destination"
+          elif [ -d "$destination" ]; then
+            /bin/rm -r "$destination"
+          fi
 schemes:
   PortlessBar:
     build:

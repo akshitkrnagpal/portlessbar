@@ -48,4 +48,18 @@ For an intentionally non-notarized distribution, explicitly state that fact in i
 
 ## Distribution and updates
 
-Downloads are universal ZIP archives with a SHA-256 checksum. Updates currently use manual replacement; the app makes no background update requests. A Homebrew cask can follow stable notarized downloads. Automatic updates would need signed update metadata, a maintained feed and a recovery path before adding an updater.
+Downloads are universal ZIP archives with a SHA-256 checksum. Sparkle checks the HTTPS `appcast.xml` in this repository. Generate update metadata only from the final notarized archive, after stapling:
+
+```sh
+./scripts/generate-appcast.sh dist/PortlessBar-$(cat VERSION)-universal.zip
+```
+
+The Ed25519 private key is stored in the local Keychain under the account `io.akshit.PortlessBar`. Its public key is in `Config/Info.plist`. The generation script checks the version, signature, stapled ticket and Gatekeeper acceptance, then uses Sparkle's official tool to sign the archive and generate the feed. It never exports the private key.
+
+Upload the matching ZIP and checksum first; then commit and publish `appcast.xml`. Verify the feed's URL, archive length, EdDSA signature and downloaded SHA-256 before announcing an update. Future releases must increase `CFBundleVersion` through `VERSION` for Sparkle to recognize an update. The finalized first release remains 0.1.0; do not replace a published stable version's assets during subsequent releases.
+
+The first private beta had no updater and needs one manual replacement with the finalized download. The new build enables automatic checks and presents an installation prompt. Manual downloads remain available if updates fail.
+
+The cask lives in [akshitkrnagpal/homebrew-tap](https://github.com/akshitkrnagpal/homebrew-tap), at `Casks/portlessbar.rb`. Update its version and SHA-256 for each stable universal ZIP, test its download, and publish it after the release. It declares `auto_updates true` because the app updates itself through Sparkle. Homebrew users can also run `brew upgrade --cask --greedy akshitkrnagpal/tap/portlessbar`.
+
+The feed and cask need public HTTPS downloads; do not embed GitHub tokens in either.

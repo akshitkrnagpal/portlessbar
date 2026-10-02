@@ -32,30 +32,29 @@ fi
 cp Assets/LinkIcons/*.pdf "$APP/Contents/Resources/"
 cp LICENSE NOTICE "$APP/Contents/Resources/"
 cp Assets/LinkIcons/README.md "$APP/Contents/Resources/LinkIcons-Attribution.md"
-cat > "$APP/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>PortlessBar</string>
-<key>CFBundleIdentifier</key><string>io.akshit.PortlessBar</string>
-<key>CFBundleName</key><string>PortlessBar</string>
-<key>CFBundleDisplayName</key><string>PortlessBar</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>$VERSION</string>
-<key>CFBundleVersion</key><string>$VERSION</string>
-<key>CFBundleIconFile</key><string>AppIcon</string>
-<key>NSHumanReadableCopyright</key><string>Copyright © 2026 Akshit Kr Nagpal.</string>
-<key>LSMinimumSystemVersion</key><string>14.0</string>
-<key>LSUIElement</key><true/>
-<key>NSHighResolutionCapable</key><true/>
-</dict></plist>
-PLIST
+cp Config/Info.plist "$APP/Contents/Info.plist"
+plutil -replace CFBundleExecutable -string PortlessBar "$APP/Contents/Info.plist"
+plutil -replace CFBundleDevelopmentRegion -string en "$APP/Contents/Info.plist"
+plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Frameworks"
+FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
+SPARKLE="${PORTLESSBAR_BUILD_DIR:-.build}/artifacts/sparkle/Sparkle"
+ditto "$SPARKLE/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" "$FRAMEWORK"
+cp Assets/Sparkle-LICENSE "$APP/Contents/Resources/Sparkle-LICENSE"
+# SPM's command-line executable also needs the app-bundle framework runpath.
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/PortlessBar"
 # File Provider can attach Finder metadata to generated bundles in Documents.
 xattr -cr "$APP"
-SIGN_ARGS=(--force --options runtime --sign "${PORTLESSBAR_SIGN_IDENTITY:--}")
-if [[ "${PORTLESSBAR_SIGN_IDENTITY:--}" == "-" ]]; then SIGN_ARGS+=(--timestamp=none); else SIGN_ARGS+=(--timestamp); fi
+SIGN_ARGS=(--force --sign "${PORTLESSBAR_SIGN_IDENTITY:--}")
+if [[ "${PORTLESSBAR_SIGN_IDENTITY:--}" == "-" ]]; then SIGN_ARGS+=(--timestamp=none); else SIGN_ARGS+=(--options runtime --timestamp); fi
+for nested in "$FRAMEWORK/Versions/B/XPCServices/Downloader.xpc" \
+    "$FRAMEWORK/Versions/B/XPCServices/Installer.xpc" \
+    "$FRAMEWORK/Versions/B/Autoupdate" "$FRAMEWORK/Versions/B/Updater.app" "$FRAMEWORK"; do
+    codesign "${SIGN_ARGS[@]}" "$nested"
+done
 codesign "${SIGN_ARGS[@]}" "$APP"
-codesign --verify --strict "$APP"
+codesign --verify --deep --strict "$APP"
 ditto --norsrc "$APP" "$DIST_DIR/PortlessBar.app"
 ditto -c -k --norsrc --keepParent "$APP" "$DIST_DIR/PortlessBar-build.zip"
 printf 'Built %s\n' "$DIST_DIR/PortlessBar.app"

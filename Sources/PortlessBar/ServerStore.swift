@@ -93,17 +93,21 @@ struct ProxyCommand: Sendable {
     var timeout: TimeInterval = 30
     var authorize: @Sendable (String) async throws -> Void = { try await Authorization.execute($0) }
     private let versionManagerDirectories: [String]
+    private let home: String
 
-    init(executable: [String] = ["portless"], environment: [String: String] = ProcessInfo.processInfo.environment) {
+    init(executable: [String] = ["portless"], environment: [String: String] = ProcessInfo.processInfo.environment,
+         homeDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path) {
         self.executable = executable
         self.environment = environment
-        versionManagerDirectories = Self.discoverVersionManagers(environment: environment)
+        home = homeDirectory
+        versionManagerDirectories = Self.discoverVersionManagers(environment: environment, home: homeDirectory)
     }
 
     var path: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
         var directories = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
         directories += [home + "/.bun/bin", home + "/.local/bin", home + "/.volta/bin",
+                        environment["PNPM_HOME"] ?? home + "/Library/pnpm", home + "/.npm-global/bin",
+                        (environment["NPM_CONFIG_PREFIX"] ?? home + "/.npm-global") + "/bin",
                         home + "/.asdf/shims", home + "/.local/share/mise/shims",
                         "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
         directories += versionManagerDirectories
@@ -111,8 +115,7 @@ struct ProxyCommand: Sendable {
         return directories.filter { $0.hasPrefix("/") && seen.insert($0).inserted }.joined(separator: ":")
     }
 
-    private static func discoverVersionManagers(environment: [String: String]) -> [String] {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+    private static func discoverVersionManagers(environment: [String: String], home: String) -> [String] {
         var directories: [String] = []
         // Discover version-manager installations without sourcing any shell rc.
         let roots = [environment["FNM_DIR"] ?? home + "/.local/share/fnm",
@@ -123,9 +126,19 @@ struct ProxyCommand: Sendable {
             directories += names.sorted { $0.localizedStandardCompare($1) == .orderedDescending }
                 .map { versions + "/" + $0 + "/installation/bin" }
         }
-        let nvm = (environment["NVM_DIR"] ?? home + "/.nvm") + "/versions/node"
+        let nvmRoot = environment["NVM_DIR"] ?? home + "/.nvm"
+        let nvm = nvmRoot + "/versions/node"
         let versions = (try? FileManager.default.contentsOfDirectory(atPath: nvm)) ?? []
-        directories += versions.sorted { $0.localizedStandardCompare($1) == .orderedDescending }.map { nvm + "/" + $0 + "/bin" }
+        var preferred = (try? String(contentsOfFile: nvmRoot + "/alias/default", encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        for _ in 0..<5 where preferred.hasPrefix("lts/") && !preferred.contains("..") {
+            guard let alias = try? String(contentsOfFile: nvmRoot + "/alias/" + preferred, encoding: .utf8) else { break }
+            preferred = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let prefix = preferred.hasPrefix("v") ? preferred : "v" + preferred
+        let ordered = versions.sorted { $0.localizedStandardCompare($1) == .orderedDescending }
+        let matches = ordered.filter { $0 == prefix || $0.hasPrefix(prefix + ".") }
+        directories += (matches + ordered.filter { !matches.contains($0) }).map { nvm + "/" + $0 + "/bin" }
         return directories
     }
 
@@ -136,19 +149,50 @@ struct ProxyCommand: Sendable {
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    private func prepare() throws -> (executable: String, arguments: [String], path: String) {
+    private func prepare() async throws -> (executable: String, arguments: [String], path: String) {
         let first = executable.first ?? "portless"
         let selected = first == "portless" ? (environment["PORTLESSBAR_CLI"] ?? first) : first
-        let path = path
+        var path = path
         guard let resolved = resolve(selected, path: path) else {
             throw PortlessError.message("Install the Portless CLI (npm install -g portless), or set PORTLESSBAR_CLI to its absolute path before launching PortlessBar.")
+        }
+        // A Node-based CLI must use a runtime compatible with its own package,
+        // rather than whichever Homebrew/version-manager node happens to be first.
+        let realCLI = URL(fileURLWithPath: resolved).resolvingSymlinksInPath()
+        let source = (try? String(contentsOf: realCLI, encoding: .utf8)) ?? ""
+        if source.hasPrefix("#!/usr/bin/env node") {
+            var minimum = 20
+            var ancestor = realCLI.deletingLastPathComponent()
+            var candidates = [URL(fileURLWithPath: resolved).deletingLastPathComponent().appendingPathComponent("node").path]
+            for _ in 0..<6 {
+                if let data = try? Data(contentsOf: ancestor.appendingPathComponent("package.json")),
+                   let package = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   package["name"] as? String == "portless",
+                   let engines = package["engines"] as? [String: String], let range = engines["node"],
+                   let value = range.split(whereSeparator: { !$0.isNumber }).first.flatMap({ Int($0) }) {
+                    minimum = value
+                }
+                candidates.append(ancestor.appendingPathComponent("bin/node").path)
+                ancestor.deleteLastPathComponent()
+            }
+            candidates += path.split(separator: ":").map { String($0) + "/node" }
+            var seen = Set<String>()
+            var selected: String?
+            for candidate in candidates where seen.insert(candidate).inserted && FileManager.default.isExecutableFile(atPath: candidate) {
+                if let result = try? await Commands.execute(executable: candidate, arguments: ["--version"], environment: environment, timeout: 2),
+                   result.status == 0,
+                   let major = Int(result.output.trimmingCharacters(in: .whitespacesAndNewlines).dropFirst().split(separator: ".").first ?? ""),
+                   major >= minimum { selected = candidate; break }
+            }
+            guard let selected else { throw PortlessError.message("This Portless installation needs Node.js \(minimum) or newer. Install a compatible runtime and try again.") }
+            path = URL(fileURLWithPath: selected).deletingLastPathComponent().path + ":" + path
         }
         return (resolved, Array(executable.dropFirst()), path)
     }
 
     func run(_ arguments: [String], directory: String) async throws -> CommandResult {
         try Task.checkCancellation()
-        let prepared = try prepare()
+        let prepared = try await prepare()
         var environment = environment
         environment["PATH"] = prepared.path
         environment["PORTLESS_STATE_DIR"] = directory
@@ -160,7 +204,7 @@ struct ProxyCommand: Sendable {
 
     func runAsAdministrator(_ arguments: [String], directory: String, verifyingPID: Int32? = nil) async throws {
         // Resolve the CLI as the user. Never run their login-shell startup files as root.
-        let prepared = try prepare()
+        let prepared = try await prepare()
         let resolved = prepared.executable
         var command = ""
         if let pid = verifyingPID {
@@ -174,15 +218,31 @@ struct ProxyCommand: Sendable {
             }
             command = "case \"$(/bin/ps -p \(pid) -o command=)\" in \(patterns.joined(separator: "|"))) ;; *) echo 'The proxy process changed. Try again.'; exit 1;; esac; "
         }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
         let nodeDirectory = resolve("node", path: prepared.path).map { URL(fileURLWithPath: $0).deletingLastPathComponent().path }
         let privilegedPath = [nodeDirectory, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
             .compactMap { $0 }.joined(separator: ":")
         let env = ["PATH=" + privilegedPath, "HOME=" + home, "SUDO_USER=" + NSUserName(), "SUDO_UID=" + String(getuid()), "SUDO_GID=" + String(getgid()), "PORTLESS_STATE_DIR=" + directory, "NO_COLOR=1", "TERM=dumb"]
-        command += (["/usr/bin/env"] + env + [resolved] + prepared.arguments + arguments).map(Integration.quote).joined(separator: " ")
+        let invocation = [resolved] + prepared.arguments + arguments
+        let bounded: [String]
+        if let node = resolve("node", path: prepared.path) {
+            bounded = [node, "-e", Self.administratorWatchdog, "--", String(timeout)] + invocation
+        } else { throw PortlessError.message("A Node.js runtime is required to safely run the administrator command.") }
+        command += (["/usr/bin/env"] + env + bounded).map(Integration.quote).joined(separator: " ")
         let literal = "\"" + command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         try await authorize("do shell script \(literal) with administrator privileges")
     }
+
+    // Runs only after approval. Limit the CLI, not time spent at the password prompt,
+    // and signal only that child process; development servers are never targeted.
+    static let administratorWatchdog = """
+    const {spawn}=require('node:child_process');
+    const [seconds, executable, ...args]=process.argv.slice(1);
+    const child=spawn(executable,args,{stdio:'inherit'});
+    let timedOut=false, escalation;
+    const timer=setTimeout(()=>{timedOut=true; console.error('The Portless command timed out. Check Portless in Terminal and try again.'); child.kill('SIGTERM'); escalation=setTimeout(()=>child.kill('SIGKILL'),2000);},Number(seconds)*1000);
+    child.on('error',error=>{clearTimeout(timer);console.error(error.message);process.exitCode=1;});
+    child.on('close',code=>{clearTimeout(timer);clearTimeout(escalation);process.exitCode=timedOut?124:(code??1);});
+    """
 }
 
 enum Authorization {
@@ -275,8 +335,15 @@ final class ServerStore: ObservableObject {
             refreshTask = task
         }
         defer { if ownsTask { refreshTask = nil } }
+        let snapshot: Snapshot
         do {
-            let snapshot = try await task.value
+            snapshot = try await task.value
+        } catch {
+            readError = "Could not read Portless: \(error.localizedDescription)"
+            self.error = readError
+            return nil
+        }
+        do {
             if Task.isCancelled { return nil }
             routes = snapshot.routes
             proxyRunning = snapshot.proxyRunning
@@ -289,7 +356,7 @@ final class ServerStore: ObservableObject {
             readError = nil
             return snapshot
         } catch {
-            readError = "Could not read Portless: \(error.localizedDescription)"
+            readError = "Could not save the proxy configuration: \(error.localizedDescription)"
             self.error = readError
             return nil
         }

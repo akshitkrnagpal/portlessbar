@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		098B283F43C50E2466066502 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = F312846A0EFFED93C8EDD4E0 /* Sparkle */; };
 		0B20B21D61AF10BEE06C32BF /* PortlessSystem.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3050558F12083E48208A3E65 /* PortlessSystem.h */; };
 		185C0BA9BC34035DE11FB243 /* StatusMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8437B9D99C7171AE3867A53 /* StatusMenu.swift */; };
 		340EF6D1EB3388F0FED76154 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 7B83327E7215979E449816F6 /* LICENSE */; };
@@ -14,14 +15,15 @@
 		394ED6D2EEE65B29B4B7D220 /* GitHubMark.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 0F6E9E25C660E1A12F858B6B /* GitHubMark.pdf */; };
 		3B2D4102F12ED8EF0009FACC /* XMark.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A88AB7A9E17C0419B64150C9 /* XMark.pdf */; };
 		4B083E461F38EEA8A394FDBB /* IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85E31470E96FEB6E67A8330 /* IntegrationTests.swift */; };
+		6886457A48F47774F3CFF9DD /* Updates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E264FAF3FA9BC69903C46D6E /* Updates.swift */; };
 		75ADF859D8C8F3AF411D35EE /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020BA23F94147481950C19FA /* Models.swift */; };
 		78290F928670A0609D8B1F48 /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD65B58430F51E10CB272A4 /* LoginItem.swift */; };
 		83ABE776700156874DC12B96 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9868E04D436C449EF94346 /* Settings.swift */; };
 		8D6EE81EAFA4C33518ABBB0E /* StatusMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */; };
 		93BE8ED1A2B4524BA19F9DA7 /* CommandExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E053423F49E01FC8604D83 /* CommandExecution.swift */; };
 		96729E813635D1B5293C59B1 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC9EB0BC76401161915C63E /* App.swift */; };
-		9C7E04C42D66132DCE3A403D /* TestTools in Resources */ = {isa = PBXBuildFile; fileRef = ADDBB5C2048F0D2DCD7065A2 /* TestTools */; };
 		A5AEC612705828257B06D181 /* LoginItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5E6C86AC0D7C8A50FA8D2D /* LoginItemTests.swift */; };
+		AC427CDA7537952E1A0E8770 /* Sparkle-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */; };
 		AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED57934E965C56EEC11DA87F /* ServerStore.swift */; };
 		AF38E4A07C631A2ABBE84333 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = C93170E080B51870DD473C2C /* README.md */; };
 		B048A1A2497FCA2A1D37A1C5 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0C0B48FFD4DBC12E3540446E /* AppIcon.icns */; };
@@ -82,13 +84,14 @@
 		881F280262629AD1126747C5 /* libPortlessSystem.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPortlessSystem.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A9868E04D436C449EF94346 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		A88AB7A9E17C0419B64150C9 /* XMark.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = XMark.pdf; sourceTree = "<group>"; };
+		AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */ = {isa = PBXFileReference; path = "Sparkle-LICENSE"; sourceTree = "<group>"; };
 		AAD65B58430F51E10CB272A4 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
-		ADDBB5C2048F0D2DCD7065A2 /* TestTools */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TestTools; path = .cloud/TestTools; sourceTree = SOURCE_ROOT; };
 		B1DC4DF783D9AF32E3E42DA5 /* PortlessBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PortlessBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8437B9D99C7171AE3867A53 /* StatusMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenu.swift; sourceTree = "<group>"; };
 		C93170E080B51870DD473C2C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D5E053423F49E01FC8604D83 /* CommandExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandExecution.swift; sourceTree = "<group>"; };
 		DBC9EB0BC76401161915C63E /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		E264FAF3FA9BC69903C46D6E /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
 		E85E31470E96FEB6E67A8330 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
 		ED57934E965C56EEC11DA87F /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
 		F91C331F8BFDF8AC6E283760 /* NOTICE */ = {isa = PBXFileReference; path = NOTICE; sourceTree = "<group>"; };
@@ -100,6 +103,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BDDE445CE965B9F7050E3D64 /* libPortlessSystem.a in Frameworks */,
+				098B283F43C50E2466066502 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,6 +169,7 @@
 				ED57934E965C56EEC11DA87F /* ServerStore.swift */,
 				9A9868E04D436C449EF94346 /* Settings.swift */,
 				C8437B9D99C7171AE3867A53 /* StatusMenu.swift */,
+				E264FAF3FA9BC69903C46D6E /* Updates.swift */,
 			);
 			name = PortlessBar;
 			path = Sources/PortlessBar;
@@ -174,6 +179,7 @@
 			isa = PBXGroup;
 			children = (
 				0C0B48FFD4DBC12E3540446E /* AppIcon.icns */,
+				AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */,
 			);
 			path = Assets;
 			sourceTree = "<group>";
@@ -193,7 +199,6 @@
 			children = (
 				7B83327E7215979E449816F6 /* LICENSE */,
 				F91C331F8BFDF8AC6E283760 /* NOTICE */,
-				ADDBB5C2048F0D2DCD7065A2 /* TestTools */,
 				A9E880092AA5078D012473CE /* Assets */,
 				4BB367E2F978BBAAC29CB83F /* LinkIcons */,
 				858014292AFA3F620DD76271 /* PortlessBar */,
@@ -211,7 +216,7 @@
 			buildConfigurationList = 83ECC630E216526858F61433 /* Build configuration list for PBXNativeTarget "PortlessBarTests" */;
 			buildPhases = (
 				EB84597EFD43293E42C48028 /* Sources */,
-				CD9BF7496ABDD526412808F0 /* Resources */,
+				70E5A653FE89267DBE11DFC9 /* Optional live test tools */,
 				39F27FE8F0D4FB536F8C10D0 /* Frameworks */,
 			);
 			buildRules = (
@@ -242,6 +247,7 @@
 			);
 			name = PortlessBar;
 			packageProductDependencies = (
+				F312846A0EFFED93C8EDD4E0 /* Sparkle */,
 			);
 			productName = PortlessBar;
 			productReference = 46A83A2B4B694DA79720A2AB /* PortlessBar.app */;
@@ -275,15 +281,12 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					3432B9D3CFC0F0023B5EF800 = {
-						DevelopmentTeam = 7D6HNDPR5T;
 						ProvisioningStyle = Automatic;
 					};
 					513FC69E03AE0F3F48F31A81 = {
-						DevelopmentTeam = 7D6HNDPR5T;
 						ProvisioningStyle = Automatic;
 					};
 					9E2C32970CFEF23AFFCC5F39 = {
-						DevelopmentTeam = 7D6HNDPR5T;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -297,6 +300,9 @@
 			);
 			mainGroup = F9F2F783A642D3F603022DA7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BF97EF3A17AEB91A27739B4A /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B284118DC24A200EA84AE104 /* Products */;
 			projectDirPath = "";
@@ -319,19 +325,34 @@
 				340EF6D1EB3388F0FED76154 /* LICENSE in Resources */,
 				DA89C931B01BE65ED01B2DA6 /* NOTICE in Resources */,
 				AF38E4A07C631A2ABBE84333 /* README.md in Resources */,
+				AC427CDA7537952E1A0E8770 /* Sparkle-LICENSE in Resources */,
 				3B2D4102F12ED8EF0009FACC /* XMark.pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CD9BF7496ABDD526412808F0 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		70E5A653FE89267DBE11DFC9 /* Optional live test tools */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
-				9C7E04C42D66132DCE3A403D /* TestTools in Resources */,
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Optional live test tools";
+			outputFileListPaths = (
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "destination=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/TestTools\"\nif [ -d \"$SRCROOT/.cloud/TestTools\" ]; then\n  /usr/bin/ditto \"$SRCROOT/.cloud/TestTools\" \"$destination\"\nelif [ -d \"$destination\" ]; then\n  /bin/rm -r \"$destination\"\nfi\n";
 		};
-/* End PBXResourcesBuildPhase section */
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8060C5FF1B2F2EFC88470109 /* Sources */ = {
@@ -345,6 +366,7 @@
 				AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */,
 				83ABE776700156874DC12B96 /* Settings.swift in Sources */,
 				185C0BA9BC34035DE11FB243 /* StatusMenu.swift in Sources */,
+				6886457A48F47774F3CFF9DD /* Updates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,13 +443,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 0.1.0;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 7D6HNDPR5T;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -465,7 +488,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				ENABLE_TESTABILITY = YES;
+				ENABLE_TESTABILITY = NO;
 				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -486,6 +509,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -544,6 +568,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -681,6 +706,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BF97EF3A17AEB91A27739B4A /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F312846A0EFFED93C8EDD4E0 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BF97EF3A17AEB91A27739B4A /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 130F2BE0516C5AEC45AC3B3A /* Project object */;
 }

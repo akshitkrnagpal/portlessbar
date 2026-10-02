@@ -1,0 +1,15 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>PortlessBar</title>
+        <item>
+            <title>0.1.0</title>
+            <pubDate>Fri, 02 Oct 2026 08:45:42 +0400</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/akshitkrnagpal/portlessbar/releases/tag/v0.1.0</sparkle:fullReleaseNotesLink>
+            <sparkle:version>0.1.0</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/akshitkrnagpal/portlessbar/releases/download/v0.1.0/PortlessBar-0.1.0-universal.zip" length="1515144" type="application/octet-stream" sparkle:edSignature="ewWCY1Zqr7o19BlHumaOsC4kw/QRjoHnh4f47waOWobvSaSo+eI8SITxI/qqNXGtDuIyqHFZqgXEtWW5en8/DQ=="/>
+        </item>
+    </channel>
+</rss>

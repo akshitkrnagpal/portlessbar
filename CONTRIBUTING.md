@@ -31,4 +31,10 @@ brew install xcodegen
 ./scripts/generate-xcode-project.sh
 ```
 
-To prepare the live test dependencies for Xcode, run `./ci_scripts/ci_post_clone.sh` once. Then select the shared **PortlessBar** scheme and run tests. Xcode Cloud uses the same hook; see [setup instructions](docs/XCODE_CLOUD.md). GitHub Actions is not used.
+Select the shared **PortlessBar** scheme and run tests. Debug uses **Sign to Run Locally**, so no Apple Developer team is required. A fresh clone runs the core tests and skips the live proxy and Node watchdog tests until their optional tools are prepared.
+
+For the complete native test suite, install Node.js/npm yourself, then run `./scripts/prepare-test-tools.sh` once. It prepares pinned tools inside ignored `.cloud/` without installing system packages or running tests. Xcode copies those tools into the test bundle when present. Swift Package Manager uses the `PORTLESS_TEST_CLI` and `PORTLESS_TEST_NODE` variables shown above.
+
+Xcode Cloud prepares all dependencies, checks that the generated project matches `project.yml`, and runs both test suites. See [setup instructions](docs/XCODE_CLOUD.md). GitHub Actions is not used. Maintainers should merge or manually approve fork contributions before running their scripts with privileged CI credentials.
+
+`Config/Info.plist` contains shared app metadata and updater configuration; `VERSION` supplies the release version. Both packaging paths use these files. Sparkle is pinned in `Package.swift`, `Package.resolved`, and `project.yml`; keep its version consistent when upgrading it.

@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 @testable import PortlessBar
 
 final class RecoveryTests: XCTestCase {
@@ -138,5 +139,73 @@ final class RecoveryTests: XCTestCase {
         XCTAssertEqual(store.pollingInterval, .seconds(2))
         store.setMenuOpen(false)
         XCTAssertEqual(store.pollingInterval, .seconds(15))
+    }
+
+    func testPNPMAndCustomNpmPrefixDiscovery() throws {
+        let root = try temporaryDirectory()
+        let command = ProxyCommand(environment: ["PNPM_HOME": root.path + "/pnpm", "NPM_CONFIG_PREFIX": root.path + "/npm"], homeDirectory: root.path)
+        let directories = command.path.split(separator: ":").map(String.init)
+        XCTAssertTrue(directories.contains(root.path + "/pnpm"))
+        XCTAssertTrue(directories.contains(root.path + "/npm/bin"))
+        XCTAssertTrue(directories.contains(root.path + "/.npm-global/bin"))
+    }
+
+    func testNodeBasedCLIRejectsOldRuntimeAndUsesCompatibleRuntime() async throws {
+        let root = try temporaryDirectory()
+        let cli = root.appendingPathComponent("prefix/bin/portless")
+        let package = root.appendingPathComponent("prefix/lib/node_modules/portless")
+        let script = package.appendingPathComponent("dist/cli.js")
+        try FileManager.default.createDirectory(at: script.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cli.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("#!/usr/bin/env node\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        try Data(#"{"name":"portless","engines":{"node":">=24"}}"#.utf8).write(to: package.appendingPathComponent("package.json"))
+        try FileManager.default.createSymbolicLink(at: cli, withDestinationURL: script)
+        for (folder, major) in [("prefix/bin", 18), ("compatible", 24)] {
+            let node = root.appendingPathComponent(folder + "/node")
+            try FileManager.default.createDirectory(at: node.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo v\(major).0.0; else echo runtime-\(major); fi\n".utf8).write(to: node)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: node.path)
+        }
+        let command = ProxyCommand(environment: ["PORTLESSBAR_CLI": cli.path, "PATH": root.path + "/compatible"], homeDirectory: root.path)
+        let result = try await command.run(["proxy", "start"], directory: root.path)
+        XCTAssertEqual(result.output, "runtime-24\n")
+    }
+
+    func testAdministratorWatchdogTerminatesHungCLIWithoutPrompt() async throws {
+        let bundled = Bundle(for: RecoveryTests.self).resourceURL?.appendingPathComponent("TestTools/node").path
+        guard let node = ProcessInfo.processInfo.environment["PORTLESS_TEST_NODE"] ?? bundled,
+              FileManager.default.isExecutableFile(atPath: node) else { throw XCTSkip("Prepare live test tools to test the Node watchdog.") }
+        let start = Date()
+        let result = try await Commands.execute(executable: node, arguments: ["-e", ProxyCommand.administratorWatchdog, "--", "0.1", "/bin/sleep", "10"], environment: ProcessInfo.processInfo.environment, timeout: 5)
+        XCTAssertEqual(result.status, 124)
+        XCTAssertTrue(result.output.contains("timed out"))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 4)
+    }
+
+    @MainActor
+    func testConfigurationWriteFailureIsReportedAsSaveFailure() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appendingPathComponent("app")
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: storage, monitor: false)
+        // Occupy the destination with a directory to reliably fail atomic writes,
+        // including when the test runner has permission to bypass mode bits.
+        try FileManager.default.createDirectory(at: storage.appendingPathComponent("proxy.json"), withIntermediateDirectories: true)
+        try Data("\(getpid())".utf8).write(to: root.appendingPathComponent("proxy.pid"))
+        // An ephemeral local socket makes the snapshot observe an active proxy.
+        let listener = socket(AF_INET, SOCK_STREAM, 0)
+        defer { close(listener) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let bound = withUnsafePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(listener, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        XCTAssertEqual(bound, 0)
+        XCTAssertEqual(listen(listener, 1), 0)
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(listener, $0, &length) } }
+        try Data("\(UInt16(bigEndian: address.sin_port))".utf8).write(to: root.appendingPathComponent("proxy.port"))
+        await store.refresh()
+        XCTAssertTrue(store.error?.contains("Could not save the proxy configuration") == true)
     }
 }

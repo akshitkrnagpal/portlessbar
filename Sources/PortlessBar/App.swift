@@ -14,12 +14,14 @@ enum PortlessBarApp {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = ServerStore()
-    private let settings = SettingsWindowController()
+    private let updates = UpdateStore()
+    private lazy var settings = SettingsWindowController(updates: updates)
     private var statusItem: NSStatusItem!
     private var statusMenu: StatusMenuController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        updates.start()
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "PortlessBar")

@@ -37,7 +37,7 @@ struct SettingsLink: Identifiable, Sendable {
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let login: LoginItemStore
 
-    init(login: LoginItemStore = LoginItemStore()) {
+    init(login: LoginItemStore = LoginItemStore(), updates: UpdateStore = UpdateStore()) {
         self.login = login
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 550),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -52,7 +52,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.minSize = NSSize(width: 520, height: 480)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("PortlessBarSettings")
-        window.contentViewController = NSHostingController(rootView: SettingsView(login: login))
+        window.contentViewController = NSHostingController(rootView: SettingsView(login: login, updates: updates))
         window.setContentSize(NSSize(width: 600, height: 550))
         super.init(window: window)
         window.delegate = self
@@ -73,6 +73,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
 struct SettingsView: View {
     @ObservedObject var login: LoginItemStore
+    @ObservedObject var updates: UpdateStore
 
     var body: some View {
         VStack(spacing: 0) {
@@ -87,6 +88,7 @@ struct SettingsView: View {
                         sectionTitle("General")
                         general
                     }
+                    updateControls
                     links
                     Text("Independent companion for Vercel’s Portless · Apache 2.0")
                         .font(.system(size: 11))
@@ -152,6 +154,31 @@ struct SettingsView: View {
         .padding(.horizontal, 28)
         .padding(.vertical, 12)
         .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var updateControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("Updates")
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Automatically check for updates")
+                    Spacer()
+                    Toggle("Automatically check for updates", isOn: Binding(
+                        get: { updates.automaticallyChecks }, set: { updates.setAutomaticChecks($0) }
+                    )).labelsHidden().toggleStyle(.switch)
+                }
+                .padding(.horizontal, 18).padding(.vertical, 16)
+                Divider().padding(.horizontal, 18)
+                HStack {
+                    Text("Keep PortlessBar up to date").foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Check for Updates…") { updates.check() }.disabled(!updates.canCheck)
+                }
+                .padding(.horizontal, 18).padding(.vertical, 16)
+            }
+            .font(.system(size: 13))
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        }
     }
 
     private var links: some View {

@@ -4,15 +4,16 @@ A minimal native macOS menu bar companion for Portless.
 
 - Toggle the proxy with one switch, leaving development servers running.
 - Open registered server URLs with one click.
-- A single Settings page with Launch at Login, GitHub, X and Email.
+- A single Settings page with Launch at Login, automatic update checks, GitHub, X and Email.
 - Monospace `portlessbar` identity and square `p_` app icon.
-- Configuration recovery, tolerant route parsing, and clear errors.
+- Configuration recovery, tolerant route parsing, compatible Node selection, and clear errors.
+- Signed in-app updates through Sparkle, and a Homebrew cask.
 
 Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. Tested with Portless 0.8.0 and 0.15.6.
 
 The universal ZIP supports Apple Silicon and Intel. It is signed with Developer ID Application, notarized by Apple, and includes a stapled ticket. Gatekeeper assessment passed. Verify the download against `SHA256SUMS.txt`.
 
-Move `PortlessBar.app` to `/Applications` before enabling Launch at Login. Updates use manual replacement. There are no automatic update checks.
+Move `PortlessBar.app` to `/Applications` before enabling Launch at Login. The finalized download checks for updates automatically and prompts before installing them. Earlier private beta builds need one manual replacement to enable the updater.
 
 Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
 

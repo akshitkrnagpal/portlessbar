@@ -49,7 +49,13 @@ You need **macOS 14 or newer** and an existing [Portless installation](https://g
 
 Run your development apps through Portless as usual. They appear in the menu automatically. Use the header switch to control the proxy and **Settings…** to enable Launch at Login.
 
-The **0.1.0 download is Developer ID signed and notarized by Apple**, with support for both Apple Silicon and Intel. Updates are installed manually by quitting the app and replacing it with the latest download.
+Or install with Homebrew:
+
+```sh
+brew install --cask akshitkrnagpal/tap/portlessbar
+```
+
+The **0.1.0 download is Developer ID signed and notarized by Apple**, with support for both Apple Silicon and Intel. It checks for updates automatically and lets you review and install them in-app. Find update controls in **Settings…**. Older private beta builds need one manual replacement with the current download to enable the updater.
 
 Complete Portless's initial proxy setup, certificate trust, and any required hosts configuration in Terminal first. macOS may ask for administrator approval when controlling a privileged proxy.
 
@@ -57,11 +63,11 @@ Complete Portless's initial proxy setup, certificate trust, and any required hos
 
 No account. No analytics. No extra dashboard to manage.
 
-PortlessBar keeps the everyday controls in the menu bar. Settings holds Launch at Login and links to GitHub, X, and email.
+PortlessBar keeps the everyday controls in the menu bar. Settings holds Launch at Login, update preferences, and links to GitHub, X, and email.
 
 ## Open source
 
-Built in Swift with no third-party Swift dependencies. Contributions, bug reports, and ideas are welcome.
+Built in Swift, with [Sparkle](https://sparkle-project.org/) for signed in-app updates. Contributions, bug reports, and ideas are welcome.
 
 To build locally with Swift 6 or newer:
 
