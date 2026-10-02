@@ -1,78 +1,73 @@
 <p align="center">
-  <a href="https://github.com/akshitkrnagpal/portlessbar/releases">
+  <a href="https://github.com/akshitkrnagpal/portlessbar/releases/latest">
     <img src="Assets/AppIcon.png" width="96" height="96" alt="PortlessBar monospace p_ logo" />
   </a>
 </p>
 
-<h3 align="center">PortlessBar</h3>
+<h1 align="center">PortlessBar</h1>
+
+<p align="center"><strong>Your localhost apps. One click away.</strong></p>
 
 <p align="center">
-  Portless in your macOS menu bar.
+  A tiny native macOS companion for <a href="https://github.com/vercel-labs/portless">Portless</a>.<br />
+  Open your apps, toggle the proxy, and get back to work.
 </p>
 
 <p align="center">
-  <a href="https://github.com/akshitkrnagpal/portlessbar/releases"><strong>Download</strong></a> ·
-  <a href="#use"><strong>Usage</strong></a> ·
-  <a href="https://github.com/akshitkrnagpal/portlessbar/issues"><strong>Support</strong></a> ·
-  <a href="CONTRIBUTING.md"><strong>Contributing</strong></a>
+  <a href="https://github.com/akshitkrnagpal/portlessbar/releases/latest"><strong>Download for macOS</strong></a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="https://github.com/akshitkrnagpal/portlessbar/issues">Support</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-222222" alt="macOS 14 or newer" />
-  <img src="https://img.shields.io/badge/Swift-6%2B-F05138" alt="Swift 6 or newer" />
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-222222" alt="Apple Silicon and Intel" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-222222" alt="Apache 2.0 license" /></a>
 </p>
 
 <br />
 
-A minimal native menu bar companion for [Vercel's Portless](https://github.com/vercel-labs/portless).
+<p align="center">
+  <img src="Assets/Demo.png" width="360" alt="PortlessBar menu showing the proxy switch and sample localhost app URLs" />
+</p>
+<p align="center"><sub>Your Portless apps, right in the menu bar. Demo uses sample hostnames.</sub></p>
+
+## Within reach
+
+- **Open apps in one click.** Your current Portless registrations appear as URLs. Pick one to open it in your default browser.
+- **One switch for the proxy.** Connect or disconnect without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
+- **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
+- **Feels at home on macOS.** A native menu, a monospace identity, and a small Settings screen.
+
+## Get started
+
+You need **macOS 14 or newer** and an existing [Portless installation](https://github.com/vercel-labs/portless) with its supported Node.js runtime. PortlessBar works alongside the CLI you already use.
+
+1. [Download the universal app](https://github.com/akshitkrnagpal/portlessbar/releases/latest).
+2. Unzip it and drag `PortlessBar.app` into **Applications**.
+3. Open it, then click **`p_`** in your menu bar.
+
+Run your development apps through Portless as usual. They appear in the menu automatically. Use the header switch to control the proxy and **Settings…** to enable Launch at Login.
+
+The **0.1.0 download is Developer ID signed and notarized by Apple**, with support for both Apple Silicon and Intel. Updates are installed manually by quitting the app and replacing it with the latest download.
+
+Complete Portless's initial proxy setup, certificate trust, and any required hosts configuration in Terminal first. macOS may ask for administrator approval when controlling a privileged proxy.
+
+## Small by design
+
+No account. No analytics. No extra dashboard to manage.
+
+PortlessBar keeps the everyday controls in the menu bar. Settings holds Launch at Login and links to GitHub, X, and email.
 
 <p align="center">
-  <img src="Assets/Demo.png" width="360" alt="PortlessBar menu with the proxy connected and sample localhost server URLs" />
-</p>
-<p align="center"><sub>Demo with sample hostnames. Click any server row to open its URL.</sub></p>
-
-## Install
-
-Requires **macOS 14 or newer**, the [Portless CLI](https://github.com/vercel-labs/portless) and its supported Node.js runtime. The universal app supports Apple Silicon and Intel.
-
-1. Download the universal ZIP from [Releases](https://github.com/akshitkrnagpal/portlessbar/releases).
-2. Unzip it and move `PortlessBar.app` into `/Applications`.
-3. Open the app and click `p_` in your menu bar.
-
-The 0.1.0 download is Developer ID signed and notarized by Apple. Updates are manual: quit the app and replace it with the latest download.
-
-## Use
-
-Run your development apps through Portless as usual. Click a registered hostname to open its URL in your default browser. Routes refresh immediately when opening the menu and every two seconds while it stays open.
-
-The header switch starts or stops the **Portless proxy**. Turning it off leaves your development servers running. Reconnecting retains the observed port, HTTPS mode and available launch flags. Only current route registrations appear; server rows have no checkmarks or extra controls.
-
-Open **Settings…** for **Launch at Login**, GitHub, X and Email. Login launch is off by default and reflects the actual macOS state. Move the app to `/Applications` before enabling it. If approval is required, the app opens Login Items in System Settings.
-
-<p align="center">
-  <img src="Assets/Settings.png" width="420" alt="Settings with the monospace portlessbar wordmark, Launch at Login, and GitHub, X and Email links" />
+  <img src="Assets/Settings.png" width="420" alt="PortlessBar Settings with Launch at Login and GitHub, X, and Email links" />
 </p>
 
-Complete Portless certificate trust, hosts setup and initial proxy configuration in Terminal once before using the toggle. Starting a known privileged-port proxy or stopping a root-owned proxy presents the standard macOS administrator prompt. Connection and read failures appear under **Portless Error…**; read errors clear after recovery.
+## Open source
 
-## Compatibility
+Built in Swift with no third-party Swift dependencies. Contributions, bug reports, and ideas are welcome.
 
-Tested with **Portless 0.8.0 and 0.15.6**. Portless state files and process arguments are not a stable API, so other versions may require changes. Valid route records survive malformed neighbors and missing process IDs; invalid JSON is reported.
-
-Background checks run every 15 seconds. The registry is read-only. Proxy configuration is saved in `~/Library/Application Support/PortlessBar/proxy.json`. Root-owned processes can hide launch arguments; configure custom certificates or unobservable flags in Terminal.
-
-CLI discovery uses PATH, common package-manager directories and Node version-manager locations without loading shell startup files. For a custom installation, set `PORTLESSBAR_CLI` to an absolute executable path. Set `PORTLESS_STATE_DIR` to use a registry other than `~/.portless`.
-
-## Security
-
-PortlessBar has no account system, analytics or third-party Swift dependencies. Administrator authorization grants root access to your installed Portless CLI and Node runtime. Only approve installations you trust. See [SECURITY.md](SECURITY.md) for the trust model and private vulnerability reporting.
-
-PortlessBar is an independent companion and is not affiliated with Vercel.
-
-## Build from source
-
-Use Xcode with Swift 6 or newer:
+To build locally with Swift 6 or newer:
 
 ```sh
 git clone https://github.com/akshitkrnagpal/portlessbar.git
@@ -81,12 +76,19 @@ cd portlessbar
 open dist/PortlessBar.app
 ```
 
-For both CPU architectures, run `PORTLESSBAR_ARCH=universal ./scripts/build-app.sh`. Local builds are signed ad hoc by default.
+See [Contributing](CONTRIBUTING.md) for development and tests, and [Security](SECURITY.md) for private vulnerability reports and administrator authorization details.
 
-Open `PortlessBar.xcodeproj` in Xcode, or use `Package.swift` for Swift Package Manager. See [Contributing](CONTRIBUTING.md) for tests, [Xcode Cloud](docs/XCODE_CLOUD.md) for setup, and [Releasing](docs/RELEASING.md) for signing and notarization.
+<details>
+<summary>Compatibility and custom installations</summary>
 
-## License
+Tested with **Portless 0.8.0 and 0.15.6**. Integration uses Portless's state files and process arguments, so other versions may need compatibility updates.
 
-[Apache License 2.0](LICENSE) © 2026 Akshit Kr Nagpal. Link icons retain their owners’ trademarks; see [attribution](Assets/LinkIcons/README.md).
+Custom CLI and registry paths can be supplied with `PORTLESSBAR_CLI` and `PORTLESS_STATE_DIR` when launching the app directly from Terminal; Finder and login launches do not inherit your shell's environment.
+
+</details>
+
+PortlessBar is an independent companion and is not affiliated with Vercel.
+
+[Apache License 2.0](LICENSE) © 2026 Akshit Kr Nagpal. See [NOTICE](NOTICE) and [icon attribution](Assets/LinkIcons/README.md).
 
 <p align="center">Made with ❤️ by <a href="https://akshit.io">akshit.io</a></p>
