@@ -59,10 +59,6 @@ No account. No analytics. No extra dashboard to manage.
 
 PortlessBar keeps the everyday controls in the menu bar. Settings holds Launch at Login and links to GitHub, X, and email.
 
-<p align="center">
-  <img src="Assets/Settings.png" width="420" alt="PortlessBar Settings with Launch at Login and GitHub, X, and Email links" />
-</p>
-
 ## Open source
 
 Built in Swift with no third-party Swift dependencies. Contributions, bug reports, and ideas are welcome.
