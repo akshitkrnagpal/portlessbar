@@ -121,7 +121,11 @@ final class RecoveryTests: XCTestCase {
 
     func testCLIOverrideAppliesToBothExecutionPaths() async throws {
         let root = try temporaryDirectory()
-        var command = ProxyCommand(environment: ["PORTLESSBAR_CLI": "/usr/bin/printf"])
+        // Authorization is captured, so the wrapper need only be resolvable.
+        // Keep this unit test independent of a machine's installed Node runtime.
+        let node = root.appendingPathComponent("node")
+        try FileManager.default.createSymbolicLink(atPath: node.path, withDestinationPath: "/usr/bin/true")
+        var command = ProxyCommand(environment: ["PORTLESSBAR_CLI": "/usr/bin/printf", "PATH": root.path])
         let result = try await command.run(["selected CLI"], directory: root.path)
         XCTAssertEqual(result.output, "selected CLI")
         command.authorize = { source in
