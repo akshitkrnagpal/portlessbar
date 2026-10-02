@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Portless CLI bugs
+    url: https://github.com/vercel-labs/portless/issues
+    about: Report proxy, routing, certificate, or CLI problems that reproduce without PortlessBar upstream.
+  - name: Security vulnerability
+    url: https://github.com/akshitkrnagpal/portlessbar/blob/main/SECURITY.md
+    about: Report security issues privately using the security policy.

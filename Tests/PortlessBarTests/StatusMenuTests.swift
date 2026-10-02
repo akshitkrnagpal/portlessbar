@@ -1,0 +1,68 @@
+import AppKit
+import XCTest
+@testable import PortlessBar
+
+final class StatusMenuTests: XCTestCase {
+    @MainActor
+    func testRouteRowsUpdateWhileMenuIsOpen() async throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("routes.json")
+        try JSONEncoder().encode([Route(hostname: "old.localhost", port: 3000, pid: 0)]).write(to: file)
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root.appendingPathComponent("app"), monitor: false)
+        await store.refresh()
+        let controller = StatusMenuController(store: store)
+        controller.menuWillOpen(controller.menu)
+        try await Task.sleep(for: .milliseconds(50))
+        try JSONEncoder().encode([Route(hostname: "new.localhost", port: 3001, pid: 0)]).write(to: file)
+        await store.refresh()
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(controller.menu.items.compactMap { $0.representedObject as? String }, ["new.localhost"])
+        controller.menuDidClose(controller.menu)
+        XCTAssertEqual(store.pollingInterval, .seconds(15))
+    }
+
+    @MainActor
+    func testHeaderAccommodatesLargerFontsAndWideMenus() {
+        let header = ProxyHeader()
+        header.title.font = PortlessWordmark.font(size: 28)
+        header.status.font = .menuFont(ofSize: 24)
+        header.resizeToFit()
+        header.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(header.frame.height, 42)
+        XCTAssertLessThanOrEqual(header.title.frame.maxX, header.toggle.frame.minX)
+        XCTAssertLessThanOrEqual(header.status.frame.maxY, header.bounds.maxY)
+        header.frame.size.width = 600
+        header.layoutSubtreeIfNeeded()
+        XCTAssertEqual(header.toggle.frame.maxX, 588, accuracy: 1)
+    }
+
+    @MainActor
+    func testMenuHasOneProxyToggleAndOnlyDirectURLActions() throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+        store.routes = [Route(hostname: "web.localhost", port: 4000, pid: 0), Route(hostname: "api.localhost", port: 4001, pid: 0)]
+        store.proxyRunning = true
+        var openedSettings = false
+        let controller = StatusMenuController(store: store, openSettings: { openedSettings = true })
+        XCTAssertEqual(controller.header.toggle.state, .on)
+        XCTAssertEqual(controller.header.status.stringValue, "Connected")
+        let rows = controller.menu.items.filter { $0.representedObject is String }
+        XCTAssertEqual(rows.map(\.title), ["api.localhost", "web.localhost"])
+        XCTAssertFalse(controller.menu.showsStateColumn)
+        XCTAssertTrue(rows.allSatisfy { $0.state == .off })
+        XCTAssertTrue(rows.allSatisfy { $0.action != nil && $0.submenu == nil && $0.view == nil })
+        XCTAssertTrue(controller.menu.items.allSatisfy { $0.submenu == nil })
+        XCTAssertEqual(controller.menu.items.filter { $0.view != nil }.count, 1)
+        XCTAssertFalse(controller.menu.items.contains { ["Launch at Login", "GitHub", "Support"].contains($0.title) || $0.title.contains("Start Server") || $0.title.contains("Stop Server") })
+        XCTAssertFalse(controller.menu.items.contains { $0.title.contains("Made with") })
+        let settings = try XCTUnwrap(controller.menu.items.first { $0.title == "Settings…" })
+        XCTAssertEqual(settings.keyEquivalent, ",")
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(settings.action), to: settings.target, from: settings))
+        XCTAssertTrue(openedSettings)
+    }
+}

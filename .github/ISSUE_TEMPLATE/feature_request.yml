@@ -1,0 +1,10 @@
+name: Feature request
+description: Suggest an improvement
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: What would you like to do?
+      description: Describe the use case and how the change would help.
+    validations:
+      required: true
