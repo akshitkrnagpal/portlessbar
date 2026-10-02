@@ -1,13 +1,15 @@
 # Xcode Cloud
 
-The repository includes a native macOS Xcode project and the shared **PortlessBar** scheme. GitHub Actions is not used. Apple account authorization and the first remote build remain account-side setup steps.
+The repository includes a native macOS Xcode project and the shared **PortlessBar** scheme. GitHub Actions is not used. Xcode Cloud is connected to the private repository under **AKN Technologies FZ-LLC**.
+
+The **Default** workflow builds for Any Mac and runs the native Xcode tests. It starts on changes to `main` and pull requests targeting `main`, and cancels superseded builds. It uses the latest released Xcode and macOS with clean builds. Manage it in [App Store Connect](https://appstoreconnect.apple.com/teams/93400368-2cbe-4945-9c62-4ef33f377c75/xcode-cloud/products/200431e3-9ea1-45fa-b290-a6f7eb12b5e2/workflows).
 
 ## Connect your account
 
-1. Open `PortlessBar.xcodeproj` in Xcode. Select **PortlessBar** and your **Akshit Kumar Nagpal** team (`7D6HNDPR5T`) under Signing & Capabilities.
+1. Open `PortlessBar.xcodeproj` in Xcode and select **PortlessBar**. The checked-in personal signing team (`7D6HNDPR5T`) is used for local Developer ID releases; the Cloud product belongs to **AKN Technologies FZ-LLC**.
 2. Open **Report navigator → Cloud → Get Started**. Choose the **PortlessBar** app product and shared scheme.
-3. Authorize access to the new private `akshitkrnagpal/portlessbar` repository. If Apple requests an App Store Connect app record, create a macOS record for `io.akshit.PortlessBar` with SKU `portlessbar`. This does not publish the app.
-4. Start with Apple's suggested workflow on `main`, using an available released Xcode version with Swift 6 or newer. Keep **Archive**, add **Test** for the shared scheme, and trigger builds for `main` changes and pull requests targeting it.
+3. Connect the private `akshitkrnagpal/portlessbar` repository under the company team. The current product uses Xcode Cloud's build-and-test setup and does not need an App Store app record.
+4. Configure **Build** for Any Mac and **Test** for the shared scheme, and trigger builds for `main` changes and pull requests targeting it. Archive and distribution are separate, optional actions.
 5. Start the first build and inspect the logs. Account roles, agreements, signing assets and repository access can only be confirmed after authorization.
 
 Apple requires initial setup in Xcode; subsequent workflow management is available in Xcode or App Store Connect. See [Apple's setup guide](https://developer.apple.com/documentation/xcode/configuring-your-first-xcode-cloud-workflow).
@@ -16,7 +18,7 @@ Apple requires initial setup in Xcode; subsequent workflow management is availab
 
 `ci_scripts/ci_post_clone.sh` installs the Portless version pinned in `ci_scripts/portless-version`, provisions Node.js 24 if a supported runtime is missing, and runs the complete Swift Package Manager test suite. A failed check stops the action. The Xcode Test action also runs the same tests, using those isolated CLI dependencies.
 
-Tests choose available ports and temporary state; they do not change the user's Portless registry. Generated dependencies live in ignored `.cloud/`. The native scheme can build and archive both Intel and Apple Silicon. The local setup hook, native Xcode tests and universal archive have been verified; a remote Xcode Cloud run still needs your authorization.
+Tests choose available ports and temporary state; they do not change the user's Portless registry. Generated dependencies live in ignored `.cloud/`. The native scheme can build and archive both Intel and Apple Silicon. The first remote Cloud build passed with zero warnings or errors, including all 23 tests in the setup hook with no skips. The local native Xcode tests and universal archive have also been verified.
 
 Run the setup hook locally before testing through Xcode:
 
