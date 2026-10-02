@@ -16,7 +16,7 @@ Apple requires initial setup in Xcode; subsequent workflow management is availab
 
 ## Checks and dependencies
 
-`ci_scripts/ci_post_clone.sh` installs the Portless version pinned in `ci_scripts/portless-version`, provisions Node.js 24 if a supported runtime is missing, and runs the complete Swift Package Manager test suite. A failed check stops the action. The Xcode Test action also runs the same tests, using those isolated CLI dependencies.
+`ci_scripts/ci_post_clone.sh` installs the Portless and portable Node.js versions pinned in `ci_scripts/portless-version` and `ci_scripts/node-version`, and runs the complete Swift Package Manager test suite. A failed check stops the action. It also prepares a test-only resource folder containing the runtime and CLI. Xcode copies that folder into the test bundle so the same tests can run in Cloud's separate test VM without depending on paths in the build checkout. These tools are never included in the app bundle.
 
 Tests choose available ports and temporary state; they do not change the user's Portless registry. Generated dependencies live in ignored `.cloud/`. The native scheme can build and archive both Intel and Apple Silicon. The first remote Cloud build passed with zero warnings or errors, including all 23 tests in the setup hook with no skips. The local native Xcode tests and universal archive have also been verified.
 

@@ -92,8 +92,13 @@ final class IntegrationTests: XCTestCase {
 
     @MainActor
     func testLiveProxyToggleKeepsAppsRunningAndRestoresConfiguration() async throws {
-        guard let cli = ProcessInfo.processInfo.environment["PORTLESS_TEST_CLI"],
-              let node = ProcessInfo.processInfo.environment["PORTLESS_TEST_NODE"] else {
+        let tools = Bundle(for: IntegrationTests.self).resourceURL?.appendingPathComponent("TestTools")
+        let bundledNode = tools?.appendingPathComponent("node").path
+        let bundledCLI = tools?.appendingPathComponent("portless/dist/cli.js").path
+        let hasBundledTools = bundledNode.map { FileManager.default.isExecutableFile(atPath: $0) } == true
+            && bundledCLI.map { FileManager.default.fileExists(atPath: $0) } == true
+        guard let cli = hasBundledTools ? bundledCLI : ProcessInfo.processInfo.environment["PORTLESS_TEST_CLI"],
+              let node = hasBundledTools ? bundledNode : ProcessInfo.processInfo.environment["PORTLESS_TEST_NODE"] else {
             throw XCTSkip("Set PORTLESS_TEST_CLI and PORTLESS_TEST_NODE to run the live proxy test.")
         }
         let root = try temporaryDirectory()

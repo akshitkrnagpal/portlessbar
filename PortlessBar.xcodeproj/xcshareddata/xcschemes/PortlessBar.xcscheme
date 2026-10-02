@@ -71,18 +71,6 @@
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "PORTLESS_TEST_CLI"
-            value = "$(SRCROOT)/.cloud/node_modules/portless/dist/cli.js"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "PORTLESS_TEST_NODE"
-            value = "$(SRCROOT)/.cloud/bin/node"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

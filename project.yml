@@ -64,7 +64,11 @@ targets:
   PortlessBarTests:
     type: bundle.unit-test
     platform: macOS
-    sources: [Tests/PortlessBarTests]
+    sources:
+      - path: Tests/PortlessBarTests
+      - path: .cloud/TestTools
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: PortlessBar
       - target: PortlessSystem
@@ -85,8 +89,5 @@ schemes:
       targets: [PortlessBarTests]
       commandLineArguments:
         --background: true
-      environmentVariables:
-        PORTLESS_TEST_CLI: $(SRCROOT)/.cloud/node_modules/portless/dist/cli.js
-        PORTLESS_TEST_NODE: $(SRCROOT)/.cloud/bin/node
     archive:
       config: Release

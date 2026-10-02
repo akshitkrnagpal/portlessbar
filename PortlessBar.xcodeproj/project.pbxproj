@@ -20,6 +20,7 @@
 		8D6EE81EAFA4C33518ABBB0E /* StatusMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */; };
 		93BE8ED1A2B4524BA19F9DA7 /* CommandExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E053423F49E01FC8604D83 /* CommandExecution.swift */; };
 		96729E813635D1B5293C59B1 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC9EB0BC76401161915C63E /* App.swift */; };
+		9C7E04C42D66132DCE3A403D /* TestTools in Resources */ = {isa = PBXBuildFile; fileRef = ADDBB5C2048F0D2DCD7065A2 /* TestTools */; };
 		A5AEC612705828257B06D181 /* LoginItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5E6C86AC0D7C8A50FA8D2D /* LoginItemTests.swift */; };
 		AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED57934E965C56EEC11DA87F /* ServerStore.swift */; };
 		AF38E4A07C631A2ABBE84333 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = C93170E080B51870DD473C2C /* README.md */; };
@@ -82,6 +83,7 @@
 		9A9868E04D436C449EF94346 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		A88AB7A9E17C0419B64150C9 /* XMark.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = XMark.pdf; sourceTree = "<group>"; };
 		AAD65B58430F51E10CB272A4 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
+		ADDBB5C2048F0D2DCD7065A2 /* TestTools */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TestTools; path = .cloud/TestTools; sourceTree = SOURCE_ROOT; };
 		B1DC4DF783D9AF32E3E42DA5 /* PortlessBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PortlessBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8437B9D99C7171AE3867A53 /* StatusMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenu.swift; sourceTree = "<group>"; };
 		C93170E080B51870DD473C2C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 			children = (
 				7B83327E7215979E449816F6 /* LICENSE */,
 				F91C331F8BFDF8AC6E283760 /* NOTICE */,
+				ADDBB5C2048F0D2DCD7065A2 /* TestTools */,
 				A9E880092AA5078D012473CE /* Assets */,
 				4BB367E2F978BBAAC29CB83F /* LinkIcons */,
 				858014292AFA3F620DD76271 /* PortlessBar */,
@@ -208,6 +211,7 @@
 			buildConfigurationList = 83ECC630E216526858F61433 /* Build configuration list for PBXNativeTarget "PortlessBarTests" */;
 			buildPhases = (
 				EB84597EFD43293E42C48028 /* Sources */,
+				CD9BF7496ABDD526412808F0 /* Resources */,
 				39F27FE8F0D4FB536F8C10D0 /* Frameworks */,
 			);
 			buildRules = (
@@ -316,6 +320,14 @@
 				DA89C931B01BE65ED01B2DA6 /* NOTICE in Resources */,
 				AF38E4A07C631A2ABBE84333 /* README.md in Resources */,
 				3B2D4102F12ED8EF0009FACC /* XMark.pdf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD9BF7496ABDD526412808F0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C7E04C42D66132DCE3A403D /* TestTools in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
