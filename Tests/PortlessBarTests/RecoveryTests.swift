@@ -2,6 +2,13 @@ import XCTest
 import Darwin
 @testable import PortlessBar
 
+private final class Prompts: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sources: [String] = []
+    var scripts: [String] { lock.withLock { sources } }
+    func record(_ source: String) { lock.withLock { sources.append(source) } }
+}
+
 final class RecoveryTests: XCTestCase {
     func temporaryDirectory() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -54,6 +61,278 @@ final class RecoveryTests: XCTestCase {
         XCTAssertEqual(ProxyConfiguration.reconnectExtras(args),
                        ["--tld", "dev", "--tld", "test", "--cert", "/tmp/cert", "--key", "/tmp/key",
                         "--ip", "192.168.1.8", "--wildcard", "--future=value", "--future-pair", "value"])
+    }
+
+    func testLANModeRewritesReconnectFlags() {
+        let lan = ProxyConfiguration(port: 443, tls: true, extras: ["--lan", "--ip=192.168.1.8", "--tld", "local", "--tld", "test",
+                                                                    "--lan-ip-auto", "192.168.1.8", "--wildcard", "--future-pair", "value"])
+        XCTAssertTrue(lan.lan)
+        XCTAssertEqual(lan.settingLAN(false).extras, ["--tld", "test", "--wildcard", "--future-pair", "value"])
+        XCTAssertEqual(lan.settingLAN(true).extras, ["--ip", "192.168.1.8", "--lan-ip-auto", "192.168.1.8", "--wildcard", "--future-pair", "value", "--lan"])
+        XCTAssertTrue(ProxyConfiguration(port: 443, tls: true, extras: ["--ip", "192.168.1.8"]).lan)
+        XCTAssertEqual(ProxyConfiguration(port: 443, tls: true, extras: ["--ip", "192.168.1.8", "--tld=local"]).settingLAN(false).extras, [])
+        let local = ProxyConfiguration(port: 1355, tls: false, extras: ["--tld=dev", "--tld", "test", "--wildcard", "--future=value"])
+        XCTAssertFalse(local.lan)
+        XCTAssertEqual(local.settingLAN(false), ProxyConfiguration(port: 1355, tls: false, extras: ["--tld", "dev", "--tld", "test", "--wildcard", "--future=value"]))
+        XCTAssertEqual(local.settingLAN(true).extras, ["--wildcard", "--future=value", "--lan"])
+    }
+
+    func testStartCarriesExplicitLANMode() async throws {
+        let root = try temporaryDirectory()
+        let node = root.appendingPathComponent("node")
+        try FileManager.default.createSymbolicLink(atPath: node.path, withDestinationPath: "/usr/bin/true")
+        // A shell-exported value must not decide the mode of a remembered configuration.
+        var command = ProxyCommand(executable: ["/bin/sh", "-c", "echo \"${PORTLESS_LAN-unset} [${PORTLESS_LAN_IP-unset}] $*\"", "portless"],
+                                   environment: ["PORTLESS_LAN": "1", "PORTLESS_LAN_IP": "192.168.1.8", "PATH": root.path])
+        let prompts = Prompts()
+        command.authorize = { prompts.record($0) }
+        let local = ProxyConfiguration(port: 1355, tls: false)
+        let lan = local.settingLAN(true)
+        XCTAssertEqual(lan.startArguments, ["proxy", "start", "-p", "1355", "--no-tls", "--lan"])
+        let started = try await command.run(local.startArguments, directory: root.path, environment: local.startEnvironment)
+        XCTAssertEqual(started.output, "0 [] proxy start -p 1355 --no-tls\n")
+        try await command.runAsAdministrator(local.startArguments, directory: root.path, environment: local.startEnvironment)
+        try await command.runAsAdministrator(lan.startArguments, directory: root.path, environment: lan.startEnvironment)
+        XCTAssertTrue(prompts.scripts[0].contains("'PORTLESS_LAN=0' 'PORTLESS_LAN_IP='"))
+        XCTAssertFalse(prompts.scripts[0].contains("'--lan'"))
+        XCTAssertTrue(prompts.scripts[1].contains("'--lan'"))
+        XCTAssertFalse(prompts.scripts[1].contains("'PORTLESS_LAN="))
+    }
+
+    private func servicePlist(in root: URL, stateDirectory: String, cli: [String] = ["/missing/node", "/missing/portless/dist/cli.js"]) throws -> URL {
+        let plist = root.appendingPathComponent("sh.portless.proxy.plist")
+        let service: [String: Any] = [
+            "Label": "sh.portless.proxy", "KeepAlive": true,
+            "ProgramArguments": cli + ["proxy", "start", "--foreground", "--port", "443", "--https", "--lan", "--skip-trust"],
+            "EnvironmentVariables": ["PORTLESS_STATE_DIR": stateDirectory, "PORTLESS_PORT": "443", "PORTLESS_HTTPS": "1",
+                                     "PORTLESS_LAN": "1", "PORTLESS_WILDCARD": "0", "PORTLESS_TLD": "local", "PORTLESS_SYNC_HOSTS": "0"]
+        ]
+        try PropertyListSerialization.data(fromPropertyList: service, format: .xml, options: 0).write(to: plist)
+        return plist
+    }
+
+    /// A runtime and script that only need to exist, standing in for an installed service's CLI.
+    private func installedCLI(in root: URL) throws -> [String] {
+        let node = root.appendingPathComponent("service/node")
+        let script = root.appendingPathComponent("service/portless/dist/cli.js")
+        try FileManager.default.createDirectory(at: script.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: node.path, withDestinationPath: "/usr/bin/true")
+        try Data().write(to: script)
+        return [node.path, script.path]
+    }
+
+    func testServiceReinstallKeepsInstalledOptionsForMatchingStateDirectory() throws {
+        let root = try temporaryDirectory()
+        let cli = try installedCLI(in: root)
+        let plist = try servicePlist(in: root, stateDirectory: "/Users/me/.portless", cli: cli)
+        let off = try XCTUnwrap(ProxyConfiguration.serviceInstall(plist: plist, directory: "/Users/me/.portless", lan: false))
+        XCTAssertEqual(off.executable, cli, "The reinstall must not repoint the service to another Portless build")
+        XCTAssertEqual(off.arguments, ["service", "install", "-p", "443", "--https", "--state-dir", "/Users/me/.portless"])
+        XCTAssertEqual(off.environment, ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": "", "PORTLESS_SYNC_HOSTS": "0"])
+        let on = try XCTUnwrap(ProxyConfiguration.serviceInstall(plist: plist, directory: "/Users/me/.portless", lan: true))
+        XCTAssertEqual(on.arguments, ["service", "install", "-p", "443", "--https", "--lan", "--state-dir", "/Users/me/.portless"])
+        XCTAssertEqual(on.environment, ["PORTLESS_SYNC_HOSTS": "0"])
+        XCTAssertNil(ProxyConfiguration.serviceInstall(plist: plist, directory: "/Users/other/.portless", lan: false))
+        XCTAssertNil(ProxyConfiguration.serviceInstall(plist: root.appendingPathComponent("missing.plist"), directory: "/Users/me/.portless", lan: false))
+        // An uninstalled runtime or script falls back to the CLI the app resolves.
+        let stale = try servicePlist(in: root, stateDirectory: "/Users/me/.portless")
+        XCTAssertNil(try XCTUnwrap(ProxyConfiguration.serviceInstall(plist: stale, directory: "/Users/me/.portless", lan: false)).executable)
+    }
+
+    func testRootOwnedLANProxyWithoutMarkerStaysInLANMode() throws {
+        let root = try temporaryDirectory()
+        try Data("443".utf8).write(to: root.appendingPathComponent("proxy.port"))
+        try Data().write(to: root.appendingPathComponent("proxy.tls"))
+        // Portless removes proxy.lan while it has no LAN address, and a root-owned proxy's argv is unreadable.
+        try Data("local\n".utf8).write(to: root.appendingPathComponent("proxy.tld"))
+        XCTAssertEqual(ProxyConfiguration.read(directory: root.path, pid: nil), ProxyConfiguration(port: 443, tls: true, extras: ["--lan"]))
+        try Data("192.168.1.8".utf8).write(to: root.appendingPathComponent("proxy.lan"))
+        XCTAssertEqual(ProxyConfiguration.read(directory: root.path, pid: nil), ProxyConfiguration(port: 443, tls: true, extras: ["--lan"]))
+        try FileManager.default.removeItem(at: root.appendingPathComponent("proxy.lan"))
+        try Data("test\n".utf8).write(to: root.appendingPathComponent("proxy.tld"))
+        XCTAssertEqual(ProxyConfiguration.read(directory: root.path, pid: nil), ProxyConfiguration(port: 443, tls: true, extras: ["--tld", "test"]))
+    }
+
+    /// Makes a snapshot observe a running proxy owned by `pid`, without starting one.
+    private func observeProxy(pid: Int32, in state: URL) throws {
+        let listener = socket(AF_INET, SOCK_STREAM, 0)
+        addTeardownBlock { close(listener) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let bound = withUnsafePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(listener, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        XCTAssertEqual(bound, 0)
+        // Every refresh probes the port; nothing accepts, so leave room in the backlog.
+        XCTAssertEqual(listen(listener, SOMAXCONN), 0)
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &address) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(listener, $0, &length) } }
+        try Data("\(pid)".utf8).write(to: state.appendingPathComponent("proxy.pid"))
+        try Data("\(UInt16(bigEndian: address.sin_port))".utf8).write(to: state.appendingPathComponent("proxy.port"))
+    }
+
+    /// A CLI and Node runtime that only need to resolve; authorization is captured.
+    private func capturedCommand(in root: URL, marker: URL, prompts: Prompts) throws -> ProxyCommand {
+        try FileManager.default.createSymbolicLink(atPath: root.appendingPathComponent("node").path, withDestinationPath: "/usr/bin/true")
+        var command = ProxyCommand(environment: ["PORTLESSBAR_CLI": "/usr/bin/printf", "PATH": root.path])
+        command.authorize = { source in
+            prompts.record(source)
+            // Stand in for Portless, which writes this marker only while LAN mode is active.
+            if source.contains("'--lan'") { try Data("192.168.1.8".utf8).write(to: marker) }
+            else { try FileManager.default.removeItem(at: marker) }
+        }
+        return command
+    }
+
+    @MainActor
+    func testLANSwitchRestartsRootOwnedProxyWithOnePrompt() async throws {
+        guard let pid = (2..<Int32(100000)).first(where: { kill($0, 0) != 0 && errno == EPERM }) else {
+            throw XCTSkip("No process owned by another user is available to stand in for a root-owned proxy.")
+        }
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        try observeProxy(pid: pid, in: state)
+        let prompts = Prompts()
+        let command = try capturedCommand(in: root, marker: state.appendingPathComponent("proxy.lan"), prompts: prompts)
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        await store.setLANMode(true)
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.lanMode)
+        XCTAssertEqual(prompts.scripts.count, 1, "Stopping and starting must share one administrator prompt")
+        let on = try XCTUnwrap(prompts.scripts.first)
+        let verified = try XCTUnwrap(on.range(of: "/bin/ps -p \(pid) "))
+        let stopped = try XCTUnwrap(on.range(of: "'proxy' 'stop'"))
+        let waited = try XCTUnwrap(on.range(of: "/bin/kill -0 \(pid) "))
+        let restarted = try XCTUnwrap(on.range(of: "'proxy' 'start'"))
+        XCTAssertLessThan(verified.lowerBound, stopped.lowerBound)
+        XCTAssertLessThan(stopped.lowerBound, waited.lowerBound)
+        XCTAssertLessThan(waited.lowerBound, restarted.lowerBound)
+        XCTAssertTrue(on[restarted.upperBound...].contains("'--lan'"))
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertEqual(prompts.scripts.count, 2)
+        let off = prompts.scripts[1]
+        XCTAssertLessThan(try XCTUnwrap(off.range(of: "'proxy' 'stop'")).lowerBound, try XCTUnwrap(off.range(of: "'proxy' 'start'")).lowerBound)
+        XCTAssertTrue(off.contains("'PORTLESS_LAN=0' 'PORTLESS_LAN_IP='"))
+        XCTAssertFalse(off.contains("'--lan'"))
+    }
+
+    @MainActor
+    func testLANSwitchReinstallsStartupService() async throws {
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        try observeProxy(pid: getpid(), in: state)
+        let marker = state.appendingPathComponent("proxy.lan")
+        try Data("192.168.1.8".utf8).write(to: marker)
+        let prompts = Prompts()
+        let command = try capturedCommand(in: root, marker: marker, prompts: prompts)
+        let cli = try installedCLI(in: root)
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: try servicePlist(in: root, stateDirectory: state.path, cli: cli))
+        await store.refresh()
+        XCTAssertTrue(store.lanMode)
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertEqual(prompts.scripts.count, 1)
+        let script = try XCTUnwrap(prompts.scripts.first)
+        // The installed runtime runs both the watchdog and the installed script.
+        XCTAssertTrue(script.contains(Integration.quote(cli[0]) + " '-e' "))
+        XCTAssertTrue(script.contains((cli + ["service", "install", "-p", "443", "--https", "--state-dir", state.path]).map(Integration.quote).joined(separator: " ")))
+        XCTAssertTrue(script.contains("'PATH=" + root.appendingPathComponent("service").path + ":"))
+        XCTAssertTrue(script.contains("'PORTLESS_LAN=0' 'PORTLESS_LAN_IP=' 'PORTLESS_SYNC_HOSTS=0'"))
+        XCTAssertFalse(script.contains("/usr/bin/printf"))
+        // launchd would bring a stopped proxy straight back in the old mode.
+        XCTAssertFalse(script.contains("'proxy' 'stop'"))
+    }
+
+    @MainActor
+    func testCancelledLANSwitchKeepsTheRunningMode() async throws {
+        guard let pid = (2..<Int32(100000)).first(where: { kill($0, 0) != 0 && errno == EPERM }) else {
+            throw XCTSkip("No process owned by another user is available to stand in for a root-owned proxy.")
+        }
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        try observeProxy(pid: pid, in: state)
+        let prompts = Prompts()
+        var command = try capturedCommand(in: root, marker: state.appendingPathComponent("proxy.lan"), prompts: prompts)
+        command.authorize = { source in
+            prompts.record(source)
+            throw PortlessError.message("Connection change cancelled.")
+        }
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        await store.setLANMode(true)
+        XCTAssertEqual(prompts.scripts.count, 1)
+        XCTAssertEqual(store.error, "Connection change cancelled.")
+        XCTAssertFalse(store.lanMode)
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertFalse(store.transitioning)
+        XCTAssertFalse(store.switchingLAN)
+    }
+
+    @MainActor
+    func testConnectUsesModeChosenWhileDisconnectedOverStaleStateFiles() async throws {
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        let storage = root.appendingPathComponent("app")
+        for directory in [state, storage] { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        // A killed LAN proxy leaves its port, pid and LAN markers behind.
+        let exited = Process()
+        exited.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try exited.run()
+        exited.waitUntilExit()
+        try Data("\(exited.processIdentifier)".utf8).write(to: state.appendingPathComponent("proxy.pid"))
+        try Data("1355".utf8).write(to: state.appendingPathComponent("proxy.port"))
+        try Data("local\n".utf8).write(to: state.appendingPathComponent("proxy.tld"))
+        try Data("192.168.1.8".utf8).write(to: state.appendingPathComponent("proxy.lan"))
+        try JSONEncoder().encode(ProxyConfiguration(port: 1355, tls: false, extras: ["--lan"])).write(to: storage.appendingPathComponent("proxy.json"))
+        let started = root.appendingPathComponent("started")
+        let record = "echo \"${PORTLESS_LAN-unset} $*\" > \(Integration.quote(started.path)); echo 'recorded'; exit 1"
+        let command = ProxyCommand(executable: ["/bin/sh", "-c", record, "portless"])
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: storage, command: command, monitor: false)
+        XCTAssertTrue(store.lanMode)
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: started.path))
+        await store.setProxyRunning(true)
+        XCTAssertEqual(store.error, "recorded")
+        XCTAssertEqual(try String(contentsOf: started, encoding: .utf8), "0 proxy start -p 1355 --no-tls\n")
+    }
+
+    @MainActor
+    func testLANSwitchWhileDisconnectedOnlyRemembersTheMode() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appendingPathComponent("app")
+        try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+        let file = storage.appendingPathComponent("proxy.json")
+        try JSONEncoder().encode(ProxyConfiguration(port: 1355, tls: false, extras: ["--tld", "test"])).write(to: file)
+        // Any command would fail: the CLI is missing and elevation is refused.
+        var command = ProxyCommand(executable: ["portlessbar-missing-cli-713"])
+        command.authorize = { _ in throw PortlessError.message("Unexpected administrator prompt") }
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: storage, command: command, monitor: false)
+        XCTAssertFalse(store.lanMode)
+        await store.setLANMode(true)
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.lanMode)
+        XCTAssertFalse(store.proxyRunning)
+        XCTAssertEqual(try JSONDecoder().decode(ProxyConfiguration.self, from: Data(contentsOf: file)),
+                       ProxyConfiguration(port: 1355, tls: false, extras: ["--lan"]))
+        XCTAssertTrue(ServerStore(stateDirectory: root.path, storageDirectory: storage, command: command, monitor: false).lanMode)
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertEqual(try JSONDecoder().decode(ProxyConfiguration.self, from: Data(contentsOf: file)), ProxyConfiguration(port: 1355, tls: false))
+        let fresh = ServerStore(stateDirectory: root.path, storageDirectory: root.appendingPathComponent("fresh"), command: command, monitor: false)
+        await fresh.setLANMode(true)
+        XCTAssertEqual(fresh.error, "Connect the proxy once before changing LAN mode.")
+        XCTAssertFalse(fresh.lanMode)
     }
 
     func testCommandTimeoutTerminatesProcess() async throws {

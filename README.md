@@ -36,6 +36,7 @@
 
 - **Open apps in one click.** Your current Portless registrations appear as URLs. Pick one to open it in your default browser.
 - **One switch for the proxy.** Connect or disconnect without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
+- **One switch for LAN mode.** Reach your apps from other devices on your network, or keep them on this Mac. Switching restarts the proxy; running apps get their new URLs when you restart them.
 - **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
 - **Feels at home on macOS.** A native menu, a monospace identity, and a small Settings screen.
 
@@ -84,6 +85,8 @@ See [Contributing](CONTRIBUTING.md) for development and tests, and [Security](SE
 <summary>Compatibility and custom installations</summary>
 
 Tested with **Portless 0.8.0 and 0.15.6**. Integration uses Portless's state files and process arguments, so other versions may need compatibility updates.
+
+LAN mode needs a Portless version that has LAN mode; it was tested with 0.15.6. Turning LAN mode off returns to `.localhost`, so set a custom TLD again in Portless.
 
 Custom CLI and registry paths can be supplied with `PORTLESSBAR_CLI` and `PORTLESS_STATE_DIR` when launching the app directly from Terminal; Finder and login launches do not inherit your shell's environment.
 

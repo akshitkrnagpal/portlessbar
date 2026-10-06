@@ -90,8 +90,7 @@ final class IntegrationTests: XCTestCase {
         XCTAssertTrue(store.routes.isEmpty)
     }
 
-    @MainActor
-    func testLiveProxyToggleKeepsAppsRunningAndRestoresConfiguration() async throws {
+    private func liveTools() throws -> (cli: String, node: String) {
         let tools = Bundle(for: IntegrationTests.self).resourceURL?.appendingPathComponent("TestTools")
         let bundledNode = tools?.appendingPathComponent("node").path
         let bundledCLI = tools?.appendingPathComponent("portless/dist/cli.js").path
@@ -101,6 +100,65 @@ final class IntegrationTests: XCTestCase {
               let node = hasBundledTools ? bundledNode : ProcessInfo.processInfo.environment["PORTLESS_TEST_NODE"] else {
             throw XCTSkip("Set PORTLESS_TEST_CLI and PORTLESS_TEST_NODE to run the live proxy test.")
         }
+        return (cli, node)
+    }
+
+    @MainActor
+    func testLiveLANSwitchRestartsProxyAndRemembersModeWhileDisconnected() async throws {
+        let (cli, node) = try liveTools()
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        defer {
+            if let text = try? String(contentsOfFile: state.path + "/proxy.pid", encoding: .utf8),
+               let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 { kill(pid, SIGTERM) }
+        }
+        let installedCLI = root.appendingPathComponent("bin/portless")
+        try FileManager.default.createDirectory(at: installedCLI.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: installedCLI, withDestinationURL: URL(fileURLWithPath: cli))
+        var command = ProxyCommand(executable: [node, installedCLI.path])
+        command.environment["PORTLESS_HTTPS"] = "0"
+        command.environment["PORTLESS_PORT"] = String(try unusedPort())
+        command.environment["PORTLESS_SYNC_HOSTS"] = "0"
+        for name in ["PORTLESS_LAN", "PORTLESS_LAN_IP", "PORTLESS_TLD"] { command.environment.removeValue(forKey: name) }
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        let marker = state.appendingPathComponent("proxy.lan").path
+        await store.setProxyRunning(true)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        await store.setLANMode(true)
+        // LAN mode needs a LAN address and mDNS publishing, which build machines may lack.
+        guard store.lanMode else { throw XCTSkip("LAN mode is unavailable here: \(store.error ?? "no error")") }
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker))
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker))
+        await store.setProxyRunning(false)
+        await store.setLANMode(true)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.proxyRunning, "Changing the mode must not connect a disconnected proxy.")
+        await store.setProxyRunning(true)
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.lanMode)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker))
+        await store.setProxyRunning(false)
+        await store.setLANMode(false)
+        await store.setProxyRunning(true)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker))
+        await store.setProxyRunning(false)
+        XCTAssertFalse(store.proxyRunning)
+    }
+
+    @MainActor
+    func testLiveProxyToggleKeepsAppsRunningAndRestoresConfiguration() async throws {
+        let (cli, node) = try liveTools()
         let root = try temporaryDirectory()
         let state = root.appendingPathComponent("state")
         try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)

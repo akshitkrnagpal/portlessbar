@@ -10,20 +10,21 @@ enum PortlessWordmark {
 
 @MainActor
 final class ProxyHeader: NSView {
-    let title = NSTextField(labelWithString: PortlessWordmark.text)
+    let title: NSTextField
     let status = NSTextField(labelWithString: "Disconnected")
     let toggle = NSSwitch()
 
-    init() {
+    init(title text: String = PortlessWordmark.text, font: NSFont? = nil, label: String = "Portless proxy") {
+        title = NSTextField(labelWithString: text)
         super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 42))
         autoresizingMask = [.width]
         let menuSize = NSFont.menuFont(ofSize: 0).pointSize
-        title.font = PortlessWordmark.font(size: menuSize + 1)
+        title.font = font ?? PortlessWordmark.font(size: menuSize + 1)
         // Native rows without a checkmark column start their text at 16pt.
         // Label cells add 2pt of their own inset to this frame.
         status.font = .menuFont(ofSize: max(11, menuSize - 1))
         status.textColor = .secondaryLabelColor
-        toggle.setAccessibilityLabel("Portless proxy")
+        toggle.setAccessibilityLabel(label)
         for view in [title, status, toggle] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -53,11 +54,12 @@ final class ProxyHeader: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
-/// Native proxy toggle and URL rows, with one entry point to settings.
+/// Native proxy and LAN mode toggles and URL rows, with one entry point to settings.
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     let header = ProxyHeader()
+    let lan = ProxyHeader(title: "LAN mode", font: .menuFont(ofSize: 0), label: "LAN mode")
     private let store: ServerStore
     private let openSettings: () -> Void
     private var subscription: AnyCancellable?
@@ -73,6 +75,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         header.toggle.target = self
         header.toggle.action = #selector(toggleProxy(_:))
+        lan.toggle.target = self
+        lan.toggle.action = #selector(toggleLAN(_:))
         rebuild()
         subscription = store.objectWillChange.sink { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.updateState() }
@@ -95,9 +99,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
-        let headerItem = NSMenuItem()
-        headerItem.view = header
-        menu.addItem(headerItem)
+        for view in [header, lan] {
+            let item = NSMenuItem()
+            item.view = view
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
         menu.addItem(.separator())
         errorItem = item("Portless Error…", action: #selector(showError))
@@ -117,7 +123,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             let row = existing[name] ?? item(name, action: #selector(openServer(_:)))
             row.representedObject = name
             row.toolTip = "Open in browser"
-            let position = offset + 2
+            let position = offset + 3
             if menu.index(of: row) != position {
                 if menu.index(of: row) >= 0 { menu.removeItem(row) }
                 menu.insertItem(row, at: position)
@@ -125,25 +131,37 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         if names.isEmpty, !menu.items.contains(emptyItem) {
             emptyItem.isEnabled = false
-            menu.insertItem(emptyItem, at: 2)
+            menu.insertItem(emptyItem, at: 3)
         }
     }
 
     private func updateState() {
         header.toggle.state = store.proxyRunning ? .on : .off
         header.toggle.isEnabled = !store.transitioning
-        header.status.stringValue = store.transitioning
+        header.status.stringValue = store.transitioning && !store.switchingLAN
             ? (store.proxyRunning ? "Disconnecting…" : "Connecting…")
             : (store.proxyRunning ? "Connected" : "Disconnected")
+        lan.toggle.state = store.lanMode ? .on : .off
+        lan.toggle.isEnabled = !store.transitioning
+        // Running apps keep the hostname they registered with until they restart.
+        let stale = store.routes.contains { $0.hostname.hasSuffix(".local") != store.lanMode }
+        lan.status.stringValue = store.switchingLAN ? "Switching…"
+            : stale ? "Restart apps to update URLs"
+            : (store.lanMode ? "Reachable on your network" : "This Mac only")
         errorItem?.isHidden = store.error == nil
         updateRoutes()
         header.resizeToFit()
+        lan.resizeToFit()
         menu.update()
     }
 
     @objc private func toggleProxy(_ sender: NSSwitch) {
         let enabled = sender.state == .on
         Task { await store.setProxyRunning(enabled) }
+    }
+    @objc private func toggleLAN(_ sender: NSSwitch) {
+        let enabled = sender.state == .on
+        Task { await store.setLANMode(enabled) }
     }
     @objc private func openServer(_ item: NSMenuItem) {
         if let hostname = item.representedObject as? String { store.open(hostname) }
