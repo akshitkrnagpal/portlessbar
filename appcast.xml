@@ -3,13 +3,13 @@
     <channel>
         <title>PortlessBar</title>
         <item>
-            <title>0.3.0</title>
-            <pubDate>Thu, 08 Oct 2026 11:42:27 +0400</pubDate>
-            <sparkle:fullReleaseNotesLink>https://github.com/akshitkrnagpal/portlessbar/releases/tag/v0.3.0</sparkle:fullReleaseNotesLink>
-            <sparkle:version>0.3.0</sparkle:version>
-            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <title>0.3.1</title>
+            <pubDate>Thu, 08 Oct 2026 12:28:40 +0400</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/akshitkrnagpal/portlessbar/releases/tag/v0.3.1</sparkle:fullReleaseNotesLink>
+            <sparkle:version>0.3.1</sparkle:version>
+            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/akshitkrnagpal/portlessbar/releases/download/v0.3.0/PortlessBar-0.3.0-universal.zip" length="1554978" type="application/octet-stream" sparkle:edSignature="vanGtHvw1HX0x95E24bwxP4g35BosQhRIhLOJF1N59LQvSmY8lHUxg2kc4pvG1rRxw/q+8LMJo3L+Dv1PdisAw=="/>
+            <enclosure url="https://github.com/akshitkrnagpal/portlessbar/releases/download/v0.3.1/PortlessBar-0.3.1-universal.zip" length="1570220" type="application/octet-stream" sparkle:edSignature="lqkxXp8Zy0YqqSejFHotP0/O3M/JELjmy2xkAhkOoxYy+H65/ZjvooelSNYQy+GFWkKwqkA8P+qFTM0HnIa5Aw=="/>
         </item>
     </channel>
 </rss>
