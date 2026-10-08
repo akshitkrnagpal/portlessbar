@@ -11,7 +11,7 @@ Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. 
 
 The universal app supports Apple Silicon and Intel. Move `PortlessBar.app` to `/Applications` before enabling Launch at Login.
 
-The download is Developer ID signed, notarized by Apple, and includes a stapled notarization ticket. SHA256SUMS.txt contains the finalized archive's SHA-256 checksum. Updates use the existing Sparkle trust key.
+The download is Developer ID signed, notarized by Apple, and includes a stapled notarization ticket. SHA256SUMS.txt contains the finalized archive's SHA-256 checksum. The update signing key is recovered through Sparkle’s supported rotation process, preserving the previous release’s Apple signing requirement.
 
 Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
 

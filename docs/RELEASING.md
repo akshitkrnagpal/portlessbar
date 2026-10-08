@@ -24,6 +24,14 @@ No `notarytool` profile was created for 0.2.0. That release used the saved `asc`
 
 Never commit private keys, passwords, exported Apple sessions or authentication codes. Do not print secrets or pass them through commands whose exception output includes their arguments.
 
+## Signing recovery for 0.3.2
+
+The documented dedicated keychain and backup directory were unavailable on the release machine. The accessible Developer ID Application identity is `Developer ID Application: Akshit Kumar Nagpal (7D6HNDPR5T)` in the login Keychain. It preserves the downloaded 0.3.1 app’s exact designated requirement on both architectures. No certificate or private key was created.
+
+The existing `io.akshit.PortlessBar` Sparkle account contains the original key with public value `ZkB2c8BZ1vTG7oUMK5wXfYZKT7sMQnhBgJVCywh1nB4=`. The 0.3.1 private key could not be found in the main checkout, other worktrees, documented backup location or login Keychain. Version 0.3.2 returns to the accessible key through the documented rotation path below. `Config/Info.plist` supplies the current public key; never assume the historical table identifies an accessible backup.
+
+Notarization uses the saved `asc` profile `App Store Connect CLI`. macOS may require local Keychain authorization for `asc` and Sparkle’s signing tool. Approve those prompts locally; do not enter passwords in chat or logs. The signing identity and API credentials remain in the login Keychain. Do not lock the user’s login Keychain as if it were the absent dedicated release keychain.
+
 ## Prepare and test
 
 1. Review each feature PR and test its exact head before merging. Keep the review evidence and commit SHA.
