@@ -56,7 +56,7 @@ Or install with Homebrew:
 brew install --cask akshitkrnagpal/tap/portlessbar
 ```
 
-The **0.1.0 download is Developer ID signed and notarized by Apple**, with support for both Apple Silicon and Intel. It checks for updates automatically and lets you review and install them in-app. Find update controls in **Settings…**. Older private beta builds need one manual replacement with the current download to enable the updater.
+The **download is Developer ID signed and notarized by Apple**, with support for both Apple Silicon and Intel. It checks for updates automatically and lets you review and install them in-app. Find update controls in **Settings…**. Older private beta builds need one manual replacement with the current download to enable the updater.
 
 Complete Portless's initial proxy setup, certificate trust, and any required hosts configuration in Terminal first. macOS may ask for administrator approval when controlling a privileged proxy.
 

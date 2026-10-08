@@ -32,6 +32,8 @@ The script enables hardened runtime, adds a secure signature timestamp, submits 
 
 `PORTLESSBAR_BUILD_DIR` and `PORTLESSBAR_DIST_DIR` can move build artifacts outside the source tree. For build-system signing problems caused by extended attributes, try a fresh checkout outside a synchronized folder. `PORTLESSBAR_BUILD_SYSTEM` can select an alternate build system supported by your Swift toolchain.
 
+Set `PORTLESSBAR_SIGN_KEYCHAIN` to use a dedicated signing keychain without changing the user's keychain search list. Unlock that keychain before building.
+
 ## Draft and publish
 
 After tests and a signed/notarized build pass, commit and push the final files. Create a draft referencing that exact commit:

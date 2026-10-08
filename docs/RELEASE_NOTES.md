@@ -12,7 +12,7 @@ Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. 
 
 The universal app supports Apple Silicon and Intel. Move `PortlessBar.app` to `/Applications` before enabling Launch at Login.
 
-Release preparation is complete. Distribution assets are pending Developer ID signing, Apple notarization, and Sparkle update signing. This draft has no installable download yet.
+The download is signed by AKN Technologies FZ-LLC, notarized by Apple, and includes a stapled notarization ticket. Gatekeeper accepts the final archive. SHA256SUMS.txt contains its SHA-256 checksum.
 
 Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
 

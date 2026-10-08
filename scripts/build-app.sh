@@ -47,6 +47,7 @@ install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS
 # File Provider can attach Finder metadata to generated bundles in Documents.
 xattr -cr "$APP"
 SIGN_ARGS=(--force --sign "${PORTLESSBAR_SIGN_IDENTITY:--}")
+if [[ -n "${PORTLESSBAR_SIGN_KEYCHAIN:-}" ]]; then SIGN_ARGS+=(--keychain "$PORTLESSBAR_SIGN_KEYCHAIN"); fi
 if [[ "${PORTLESSBAR_SIGN_IDENTITY:--}" == "-" ]]; then SIGN_ARGS+=(--timestamp=none); else SIGN_ARGS+=(--options runtime --timestamp); fi
 for nested in "$FRAMEWORK/Versions/B/XPCServices/Downloader.xpc" \
     "$FRAMEWORK/Versions/B/XPCServices/Installer.xpc" \

@@ -33,7 +33,7 @@
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/akshitkrnagpal/portlessbar/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>ZkB2c8BZ1vTG7oUMK5wXfYZKT7sMQnhBgJVCywh1nB4=</string>
+	<string>Gy3MyeZ8pqneNUZjoJfD2bG5KimxyWzcix4+e/OiFKo=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUAutomaticallyUpdate</key>
