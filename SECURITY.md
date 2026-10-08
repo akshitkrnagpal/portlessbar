@@ -6,7 +6,7 @@ Security fixes target the latest source version, currently 0.1.0. Include the ma
 
 ## Administrator authorization
 
-PortlessBar normally runs as your user. Starting a privileged-port proxy or stopping a root-owned proxy can require the standard macOS administrator prompt. The app delegates lifecycle operations to the installed Portless CLI; it does not install a privileged helper or retain your password.
+PortlessBar normally runs as your user. Starting a privileged-port proxy or stopping a root-owned proxy can require the standard macOS administrator prompt. Switching LAN mode restarts such a proxy under a single prompt, or reruns `portless service install` when Portless's startup service is installed. That reinstall runs with the runtime and script recorded in the service, or the resolved CLI when they no longer exist. The app delegates lifecycle operations to the installed Portless CLI; it does not install a privileged helper or retain your password.
 
 Approving the prompt grants root execution to that CLI, its Node runtime and their dependencies. This is the same trust decision as running `sudo portless`. The CLI or runtime may live in directories writable by your user, including package-manager or version-manager installations. Only approve elevation for installations and dependencies you trust. A compromised executable, symlink or dependency can run arbitrary code as root. The process identity check is a guard against accidentally stopping an unrelated process, not a security boundary against an attacker controlling your account.
 

@@ -57,12 +57,45 @@ final class StatusMenuTests: XCTestCase {
         XCTAssertTrue(rows.allSatisfy { $0.state == .off })
         XCTAssertTrue(rows.allSatisfy { $0.action != nil && $0.submenu == nil && $0.view == nil })
         XCTAssertTrue(controller.menu.items.allSatisfy { $0.submenu == nil })
-        XCTAssertEqual(controller.menu.items.filter { $0.view != nil }.count, 1)
+        XCTAssertEqual(controller.menu.items.compactMap(\.view), [controller.header, controller.lan])
         XCTAssertFalse(controller.menu.items.contains { ["Launch at Login", "GitHub", "Support"].contains($0.title) || $0.title.contains("Start Server") || $0.title.contains("Stop Server") })
         XCTAssertFalse(controller.menu.items.contains { $0.title.contains("Made with") })
         let settings = try XCTUnwrap(controller.menu.items.first { $0.title == "Settings…" })
         XCTAssertEqual(settings.keyEquivalent, ",")
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(settings.action), to: settings.target, from: settings))
         XCTAssertTrue(openedSettings)
+    }
+
+    @MainActor
+    func testLANRowReflectsModeAndStaleRoutes() throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+        func row(lan: Bool, hostname: String) -> ProxyHeader {
+            store.lanMode = lan
+            store.routes = [Route(hostname: hostname, port: 4000, pid: 0)]
+            return StatusMenuController(store: store).lan
+        }
+        let off = row(lan: false, hostname: "web.localhost")
+        XCTAssertEqual(off.title.stringValue, "LAN mode")
+        XCTAssertEqual(off.title.font, NSFont.menuFont(ofSize: 0))
+        XCTAssertEqual(off.toggle.accessibilityLabel(), "LAN mode")
+        XCTAssertEqual(off.toggle.state, .off)
+        XCTAssertEqual(off.status.stringValue, "This Mac only")
+        let on = row(lan: true, hostname: "web.local")
+        XCTAssertEqual(on.toggle.state, .on)
+        XCTAssertEqual(on.status.stringValue, "Reachable on your network")
+        XCTAssertEqual(row(lan: true, hostname: "web.localhost").status.stringValue, "Restart apps to update URLs")
+        XCTAssertEqual(row(lan: false, hostname: "web.local").status.stringValue, "Restart apps to update URLs")
+        store.proxyRunning = true
+        store.transitioning = true
+        store.switchingLAN = true
+        let controller = StatusMenuController(store: store)
+        XCTAssertEqual(controller.lan.status.stringValue, "Switching…")
+        XCTAssertEqual(controller.header.status.stringValue, "Connected")
+        XCTAssertFalse(controller.lan.toggle.isEnabled)
+        XCTAssertFalse(controller.header.toggle.isEnabled)
+        XCTAssertEqual(controller.menu.items.firstIndex { $0.representedObject is String }, 3)
     }
 }

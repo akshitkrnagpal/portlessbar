@@ -11,6 +11,56 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
         ["proxy", "start", "-p", String(port), tls ? "--https" : "--no-tls"] + extras
     }
 
+    var lan: Bool { extras.contains("--lan") || extras.contains("--ip") }
+
+    // Portless keeps LAN mode across restarts through its proxy.lan marker, and
+    // has no --no-lan flag. Only an explicit PORTLESS_LAN=0 starts without it,
+    // and an inherited LAN address would turn it back on.
+    var startEnvironment: [String: String] { lan ? [:] : ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": ""] }
+
+    func settingLAN(_ enabled: Bool) -> ProxyConfiguration {
+        var result = self
+        result.extras = []
+        let tokens = Self.reconnectExtras(extras)
+        var cursor = 0
+        while cursor < tokens.count {
+            let flag = tokens[cursor]
+            let value = tokens.indices.contains(cursor + 1) ? tokens[cursor + 1] : nil
+            if flag == "--lan" { cursor += 1 }
+            else if ["--ip", "--lan-ip-auto"].contains(flag), !enabled { cursor += 2 }
+            // LAN mode forces .local, and .local only resolves through LAN mode's mDNS.
+            else if flag == "--tld", enabled || value == "local" { cursor += 2 }
+            else { result.extras.append(flag); cursor += 1 }
+        }
+        if enabled { result.extras.append("--lan") }
+        return result
+    }
+
+    /// The command that reinstalls Portless's startup service in the given mode, or nil
+    /// when no service is installed for this state directory.
+    static func serviceInstall(plist: URL, directory: String, lan: Bool) -> (executable: [String]?, arguments: [String], environment: [String: String])? {
+        guard let data = try? Data(contentsOf: plist),
+              let service = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let variables = service["EnvironmentVariables"] as? [String: Any], variables["PORTLESS_STATE_DIR"] as? String == directory,
+              let arguments = service["ProgramArguments"] as? [String], let proxy = arguments.firstIndex(of: "proxy"),
+              arguments.indices.contains(proxy + 1), arguments[proxy + 1] == "start" else { return nil }
+        let flags = Array(arguments.dropFirst(proxy + 2))
+        guard let flag = flags.firstIndex(where: { ["-p", "--port"].contains($0) }),
+              flags.indices.contains(flag + 1), let port = Int(flags[flag + 1]) else { return nil }
+        // The installer adds --skip-trust (and --foreground) itself and rejects them as options.
+        let extras = reconnectExtras(flags).filter { $0 != "--skip-trust" }
+        let configuration = ProxyConfiguration(port: port, tls: !flags.contains("--no-tls"), extras: extras).settingLAN(lan)
+        var environment = configuration.startEnvironment
+        // The installer copies this from its own environment rather than from the installed service.
+        if let hosts = variables["PORTLESS_SYNC_HOSTS"] as? String { environment["PORTLESS_SYNC_HOSTS"] = hosts }
+        // Portless writes the service from the runtime and script running the installer.
+        // Reuse the installed pair so a mode change cannot repoint the daemon to another build.
+        let installed = Array(arguments.prefix(proxy))
+        let usable = installed.count == 2 && FileManager.default.isExecutableFile(atPath: installed[0])
+            && FileManager.default.fileExists(atPath: installed[1])
+        return (usable ? installed : nil, ["service", "install"] + configuration.startArguments.dropFirst(2) + ["--state-dir", directory], environment)
+    }
+
     static func reconnectExtras(_ arguments: [String]) -> [String] {
         var result: [String] = []
         var cursor = 0
@@ -45,19 +95,21 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
               let port = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)), (1...65535).contains(port) else { return nil }
         var result = ProxyConfiguration(port: port, tls: FileManager.default.fileExists(atPath: directory + "/proxy.tls"))
         let args = pid.map(Integration.arguments) ?? []
+        let tlds: [String]
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: directory + "/proxy.tlds")),
+           let values = try? JSONDecoder().decode([String].self, from: data) { tlds = values }
+        else if let raw = try? String(contentsOfFile: directory + "/proxy.tld", encoding: .utf8) {
+            tlds = [raw.trimmingCharacters(in: .whitespacesAndNewlines)]
+        } else { tlds = [] }
         if Integration.isPortlessProxy(args), let proxy = args.firstIndex(of: "proxy") {
             result.extras = reconnectExtras(Array(args.dropFirst(proxy + 2)))
         } else {
-            let tlds: [String]
-            if let data = try? Data(contentsOf: URL(fileURLWithPath: directory + "/proxy.tlds")),
-               let values = try? JSONDecoder().decode([String].self, from: data) { tlds = values }
-            else if let raw = try? String(contentsOfFile: directory + "/proxy.tld", encoding: .utf8) {
-                tlds = [raw.trimmingCharacters(in: .whitespacesAndNewlines)]
-            } else { tlds = [] }
             for tld in tlds where !tld.isEmpty { result.extras += ["--tld", tld] }
         }
-        if FileManager.default.fileExists(atPath: directory + "/proxy.lan"), !result.extras.contains("--lan") {
-            result.extras.append("--lan")
+        // Portless's own rule. It removes the marker while no LAN address is available,
+        // but a proxy serving .local is still in LAN mode.
+        if FileManager.default.fileExists(atPath: directory + "/proxy.lan") || tlds.contains("local") {
+            result = result.settingLAN(true)
         }
         return result
     }
@@ -190,10 +242,10 @@ struct ProxyCommand: Sendable {
         return (resolved, Array(executable.dropFirst()), path)
     }
 
-    func run(_ arguments: [String], directory: String) async throws -> CommandResult {
+    func run(_ arguments: [String], directory: String, environment extra: [String: String] = [:]) async throws -> CommandResult {
         try Task.checkCancellation()
         let prepared = try await prepare()
-        var environment = environment
+        var environment = environment.merging(extra) { $1 }
         environment["PATH"] = prepared.path
         environment["PORTLESS_STATE_DIR"] = directory
         environment["TERM"] = "dumb"
@@ -202,7 +254,8 @@ struct ProxyCommand: Sendable {
                                           environment: environment, timeout: timeout)
     }
 
-    func runAsAdministrator(_ arguments: [String], directory: String, verifyingPID: Int32? = nil) async throws {
+    func runAsAdministrator(_ arguments: [String], directory: String, verifyingPID: Int32? = nil,
+                            restarting: Bool = false, environment extra: [String: String] = [:]) async throws {
         // Resolve the CLI as the user. Never run their login-shell startup files as root.
         let prepared = try await prepare()
         let resolved = prepared.executable
@@ -218,16 +271,25 @@ struct ProxyCommand: Sendable {
             }
             command = "case \"$(/bin/ps -p \(pid) -o command=)\" in \(patterns.joined(separator: "|"))) ;; *) echo 'The proxy process changed. Try again.'; exit 1;; esac; "
         }
-        let nodeDirectory = resolve("node", path: prepared.path).map { URL(fileURLWithPath: $0).deletingLastPathComponent().path }
+        // A CLI given as a runtime and script, like an installed service's, brings its own Node.
+        let node = URL(fileURLWithPath: resolved).lastPathComponent == "node" ? resolved : resolve("node", path: prepared.path)
+        let nodeDirectory = node.map { URL(fileURLWithPath: $0).deletingLastPathComponent().path }
         let privilegedPath = [nodeDirectory, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
             .compactMap { $0 }.joined(separator: ":")
         let env = ["PATH=" + privilegedPath, "HOME=" + home, "SUDO_USER=" + NSUserName(), "SUDO_UID=" + String(getuid()), "SUDO_GID=" + String(getgid()), "PORTLESS_STATE_DIR=" + directory, "NO_COLOR=1", "TERM=dumb"]
-        let invocation = [resolved] + prepared.arguments + arguments
-        let bounded: [String]
-        if let node = resolve("node", path: prepared.path) {
-            bounded = [node, "-e", Self.administratorWatchdog, "--", String(timeout)] + invocation
-        } else { throw PortlessError.message("A Node.js runtime is required to safely run the administrator command.") }
-        command += (["/usr/bin/env"] + env + bounded).map(Integration.quote).joined(separator: " ")
+            + extra.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value }
+        guard let node else {
+            throw PortlessError.message("A Node.js runtime is required to safely run the administrator command.")
+        }
+        let bounded = ["/usr/bin/env"] + env + [node, "-e", Self.administratorWatchdog, "--", String(timeout), resolved] + prepared.arguments
+        if restarting, let pid = verifyingPID {
+            // macOS prompts again for every script, so a restart is one script. Portless
+            // only signals the proxy; wait for it to exit and release the port.
+            command += (bounded + ["proxy", "stop"]).map(Integration.quote).joined(separator: " ")
+                + " || exit $?; n=0; while /bin/kill -0 \(pid) 2>/dev/null; do n=$((n+1)); "
+                + "if [ $n -gt 50 ]; then echo 'The proxy did not stop. Check Portless in Terminal and try again.'; exit 1; fi; /bin/sleep 0.2; done; "
+        }
+        command += (bounded + arguments).map(Integration.quote).joined(separator: " ")
         let literal = "\"" + command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         try await authorize("do shell script \(literal) with administrator privileges")
     }
@@ -277,9 +339,12 @@ final class ServerStore: ObservableObject {
     @Published var routes: [Route] = []
     @Published var proxyRunning = false
     @Published var transitioning = false
+    @Published var lanMode = false
+    @Published var switchingLAN = false
     @Published var error: String?
     let stateDirectory: String
     private let command: ProxyCommand
+    private let servicePlist: URL
     private let configURL: URL
     private var configuration: ProxyConfiguration?
     private var monitor: Task<Void, Never>?
@@ -289,10 +354,12 @@ final class ServerStore: ObservableObject {
     private var menuOpen = false
     var pollingInterval: Duration { menuOpen ? .seconds(2) : .seconds(15) }
 
-    init(stateDirectory: String? = nil, storageDirectory: URL? = nil, command: ProxyCommand = ProxyCommand(), monitor: Bool = true) {
+    init(stateDirectory: String? = nil, storageDirectory: URL? = nil, command: ProxyCommand = ProxyCommand(), monitor: Bool = true,
+         servicePlist: URL = URL(fileURLWithPath: "/Library/LaunchDaemons/sh.portless.proxy.plist")) {
         self.stateDirectory = stateDirectory ?? ProcessInfo.processInfo.environment["PORTLESS_STATE_DIR"]
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".portless").path
         self.command = command
+        self.servicePlist = servicePlist
         monitorEnabled = monitor
         let storage = storageDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PortlessBar", isDirectory: true)
@@ -301,6 +368,7 @@ final class ServerStore: ObservableObject {
             try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             if let data = try? Data(contentsOf: configURL) { configuration = try JSONDecoder().decode(ProxyConfiguration.self, from: data) }
         } catch { self.error = "Could not read the proxy configuration: \(error.localizedDescription)"; readError = self.error }
+        lanMode = configuration?.lan ?? false
         restartMonitor()
     }
 
@@ -347,11 +415,8 @@ final class ServerStore: ObservableObject {
             if Task.isCancelled { return nil }
             routes = snapshot.routes
             proxyRunning = snapshot.proxyRunning
-            if snapshot.proxyRunning, let config = snapshot.configuration, config != configuration {
-                try JSONEncoder().encode(config).write(to: configURL, options: .atomic)
-                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
-                configuration = config
-            }
+            if snapshot.proxyRunning, let config = snapshot.configuration, config != configuration { try remember(config) }
+            lanMode = (snapshot.proxyRunning ? snapshot.configuration : configuration)?.lan ?? false
             if error == readError { error = nil }
             readError = nil
             return snapshot
@@ -360,6 +425,38 @@ final class ServerStore: ObservableObject {
             self.error = readError
             return nil
         }
+    }
+
+    private func remember(_ config: ProxyConfiguration) throws {
+        try JSONEncoder().encode(config).write(to: configURL, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
+        configuration = config
+    }
+
+    private func run(_ arguments: [String], environment: [String: String] = [:]) async throws {
+        let result = try await command.run(arguments, directory: stateDirectory, environment: environment)
+        if result.status != 0 {
+            let message = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw PortlessError.message(message.isEmpty ? "Portless exited with status \(result.status). Check it in Terminal and try again." : message)
+        }
+    }
+
+    private func settled(within seconds: TimeInterval, _ done: () -> Bool) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        repeat {
+            await refresh()
+            if done() { return true }
+            try await Task.sleep(for: .milliseconds(250))
+        } while Date() < deadline
+        return false
+    }
+
+    private func rootOwnedProxy(_ pid: Int32?) throws -> Bool {
+        let args = pid.map(Integration.arguments) ?? []
+        if !args.isEmpty && !Integration.isPortlessProxy(args) {
+            throw PortlessError.message("The registered process is not a Portless proxy. No process was stopped.")
+        }
+        return pid.map { kill($0, 0) != 0 && errno == EPERM } ?? false
     }
 
     func open(_ hostname: String) {
@@ -379,31 +476,67 @@ final class ServerStore: ObservableObject {
             }
             if snapshot.proxyRunning == enabled { return }
             let state = stateDirectory
-            if !enabled, let pid = snapshot.proxyPID {
-                let args = Integration.arguments(pid: pid)
-                if !args.isEmpty && !Integration.isPortlessProxy(args) {
-                    throw PortlessError.message("The registered process is not a Portless proxy. No process was stopped.")
-                }
-            }
-            let config = snapshot.configuration ?? configuration
+            // State files left by a killed proxy must not override the mode chosen while disconnected.
+            let config = (snapshot.configuration ?? configuration)?.settingLAN(lanMode)
+            let rootOwned = try enabled ? false : rootOwnedProxy(snapshot.proxyPID)
             let arguments = enabled ? (config?.startArguments ?? ["proxy", "start"]) : ["proxy", "stop"]
-            let rootOwned = snapshot.proxyPID.map { kill($0, 0) != 0 && errno == EPERM } ?? false
-            if (enabled && (config?.port ?? 65535) < 1024) || (!enabled && rootOwned) {
-                try await command.runAsAdministrator(arguments, directory: state, verifyingPID: enabled ? nil : snapshot.proxyPID)
+            let environment = enabled ? (config?.startEnvironment ?? [:]) : [:]
+            if (enabled && (config?.port ?? 65535) < 1024) || rootOwned {
+                try await command.runAsAdministrator(arguments, directory: state, verifyingPID: enabled ? nil : snapshot.proxyPID,
+                                                     environment: environment)
             } else {
-                let result = try await command.run(arguments, directory: state)
-                if result.status != 0 {
-                    let message = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-                    throw PortlessError.message(message.isEmpty ? "Portless exited with status \(result.status). Check it in Terminal and try again." : message)
-                }
+                try await run(arguments, environment: environment)
             }
-            let deadline = Date().addingTimeInterval(10)
-            repeat {
-                await refresh()
-                if proxyRunning == enabled { return }
-                try await Task.sleep(for: .milliseconds(250))
-            } while Date() < deadline
+            if try await settled(within: 10, { proxyRunning == enabled }) { return }
             throw PortlessError.message("The proxy did not \(enabled ? "start" : "stop"). Check Portless in Terminal and try again.")
+        } catch { self.error = error.localizedDescription; readError = nil }
+        await refresh()
+    }
+
+    func setLANMode(_ enabled: Bool) async {
+        guard !transitioning else { return }
+        transitioning = true
+        switchingLAN = true
+        error = nil
+        readError = nil
+        defer { transitioning = false; switchingLAN = false }
+        do {
+            guard let snapshot = await refresh() else {
+                throw PortlessError.message(error ?? "Could not read Portless state.")
+            }
+            if lanMode == enabled { return }
+            guard snapshot.proxyRunning, let running = snapshot.configuration else {
+                // Nothing to restart. The next connect starts in the remembered mode.
+                guard let configuration else { throw PortlessError.message("Connect the proxy once before changing LAN mode.") }
+                try remember(configuration.settingLAN(enabled))
+                lanMode = enabled
+                return
+            }
+            let state = stateDirectory
+            let target = running.settingLAN(enabled)
+            let install = ProxyConfiguration.serviceInstall(plist: servicePlist, directory: state, lan: enabled)
+            if let install {
+                // launchd restarts the proxy with the flags in its plist, so only
+                // Portless's installer can change the mode of a startup service.
+                var installer = command
+                if let executable = install.executable { installer.executable = executable }
+                try await installer.runAsAdministrator(install.arguments, directory: state, environment: install.environment)
+            } else if try rootOwnedProxy(snapshot.proxyPID) || target.port < 1024 {
+                try await command.runAsAdministrator(target.startArguments, directory: state, verifyingPID: snapshot.proxyPID,
+                                                     restarting: true, environment: target.startEnvironment)
+            } else {
+                // A running proxy cannot change mode.
+                let pid = snapshot.proxyPID
+                try await run(["proxy", "stop"])
+                // Portless only signals the proxy; the port is free once the process is gone.
+                guard try await settled(within: 10, { !proxyRunning && pid.map { kill($0, 0) != 0 } ?? true }) else {
+                    throw PortlessError.message("The proxy did not stop. Check Portless in Terminal and try again.")
+                }
+                try await run(target.startArguments, environment: target.startEnvironment)
+            }
+            if try await settled(within: install == nil ? 10 : 20, { proxyRunning && lanMode == enabled }) { return }
+            throw PortlessError.message(enabled ? "LAN mode did not turn on. The installed Portless may be too old for LAN mode."
+                                        : "LAN mode did not turn off. Check Portless in Terminal and try again.")
         } catch { self.error = error.localizedDescription; readError = nil }
         await refresh()
     }
