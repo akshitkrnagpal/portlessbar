@@ -1,19 +1,18 @@
-# PortlessBar 0.1.0
+# PortlessBar 0.2.0
 
-A minimal native macOS menu bar companion for Portless.
+Switch Portless LAN mode from the menu bar to reach your apps from other devices on your network.
 
-- Toggle the proxy with one switch, leaving development servers running.
-- Open registered server URLs with one click.
-- A single Settings page with Launch at Login, automatic update checks, GitHub, X and Email.
-- Monospace `portlessbar` identity and square `p_` app icon.
-- Configuration recovery, tolerant route parsing, compatible Node selection, and clear errors.
-- Signed in-app updates through Sparkle, and a Homebrew cask.
+- Change LAN mode with a second switch below the proxy switch. A running proxy restarts in the selected mode.
+- Keep the selected mode while disconnected and use it on the next connection.
+- Update the Portless startup service when it manages the proxy, preserving its installed runtime and supported options.
+- Use one administrator prompt for privileged proxy restarts.
+- Show when running apps need a restart to register URLs for the new mode.
 
-Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. Tested with Portless 0.8.0 and 0.15.6.
+Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. LAN switching was tested with Portless 0.15.6. Portless 0.8.0 remains supported for proxy controls but does not support LAN mode. Custom TLDs are not restored after turning LAN mode on and then off.
 
-The universal ZIP supports Apple Silicon and Intel. It is signed with Developer ID Application, notarized by Apple, and includes a stapled ticket. Gatekeeper assessment passed. Verify the download against `SHA256SUMS.txt`.
+The universal app supports Apple Silicon and Intel. Move `PortlessBar.app` to `/Applications` before enabling Launch at Login.
 
-Move `PortlessBar.app` to `/Applications` before enabling Launch at Login. The finalized download checks for updates automatically and prompts before installing them. Earlier private beta builds need one manual replacement to enable the updater.
+Release preparation is complete. Distribution assets are pending Developer ID signing, Apple notarization, and Sparkle update signing. This draft has no installable download yet.
 
 Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
 

@@ -1,6 +1,6 @@
 # Releasing PortlessBar
 
-The version in `VERSION` is the single source of truth. Release tags use `vMAJOR.MINOR.PATCH`, for example `v0.1.0`. Repository visibility is managed separately from releases. Keep `VERSION` at **0.1.0** while the first version is being finalized; do not increment it until the maintainer confirms that version is final.
+The version in `VERSION` is the single source of truth. Release tags use `vMAJOR.MINOR.PATCH`, for example `v0.2.0`. Repository visibility is managed separately from releases. The finalized first release is 0.1.0; subsequent releases must use a higher version.
 
 ## Prepare
 
