@@ -16,7 +16,7 @@ final class ProxyHeader: NSView {
 
     init(title text: String = PortlessWordmark.text, font: NSFont? = nil, label: String = "Portless proxy") {
         title = NSTextField(labelWithString: text)
-        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 42))
+        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 50))
         autoresizingMask = [.width]
         let menuSize = NSFont.menuFont(ofSize: 0).pointSize
         title.font = font ?? PortlessWordmark.font(size: menuSize + 1)
@@ -31,10 +31,10 @@ final class ProxyHeader: NSView {
         }
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            title.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            title.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             status.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            status.topAnchor.constraint(equalTo: title.bottomAnchor),
-            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -2),
+            status.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 3),
+            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8),
             toggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             toggle.centerYAnchor.constraint(equalTo: centerYAnchor),
             title.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -12),
@@ -45,7 +45,8 @@ final class ProxyHeader: NSView {
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
         NSSize(width: max(270, max(title.intrinsicContentSize.width, status.intrinsicContentSize.width) + toggle.intrinsicContentSize.width + 38),
-               height: max(42, title.intrinsicContentSize.height + status.intrinsicContentSize.height + 6))
+               height: max(50, title.intrinsicContentSize.height + status.intrinsicContentSize.height + 19,
+                           toggle.intrinsicContentSize.height + 16))
     }
     func resizeToFit() {
         invalidateIntrinsicContentSize()
@@ -60,7 +61,7 @@ final class LANModeSelector: NSView {
     let status = NSTextField(labelWithString: "This Mac only")
 
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 42))
+        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 50))
         autoresizingMask = [.width]
         selector.segmentDistribution = .fillEqually
         selector.setAccessibilityLabel("LAN mode")
@@ -73,18 +74,18 @@ final class LANModeSelector: NSView {
         NSLayoutConstraint.activate([
             selector.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             selector.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            selector.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            selector.topAnchor.constraint(equalTo: topAnchor, constant: 8),
             status.leadingAnchor.constraint(equalTo: selector.leadingAnchor),
-            status.topAnchor.constraint(equalTo: selector.bottomAnchor),
+            status.topAnchor.constraint(equalTo: selector.bottomAnchor, constant: 5),
             status.trailingAnchor.constraint(lessThanOrEqualTo: selector.trailingAnchor),
-            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -2)
+            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8)
         ])
         resizeToFit()
     }
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
         NSSize(width: max(270, max(selector.intrinsicContentSize.width, status.intrinsicContentSize.width) + 26),
-               height: max(42, selector.intrinsicContentSize.height + status.intrinsicContentSize.height + 6))
+               height: max(50, selector.intrinsicContentSize.height + status.intrinsicContentSize.height + 21))
     }
     func resizeToFit() {
         invalidateIntrinsicContentSize()

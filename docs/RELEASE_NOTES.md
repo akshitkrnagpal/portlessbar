@@ -1,5 +1,6 @@
 # Unreleased
 
+- Add vertical padding around the menu's proxy controls and space between each control and its status text.
 - Compact the Settings window with a smaller header and tighter rows, keeping every section visible without scrolling.
 
 # PortlessBar 0.2.0
