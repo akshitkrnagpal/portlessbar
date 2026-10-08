@@ -72,19 +72,20 @@ final class StatusMenuTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
-        func row(lan: Bool, hostname: String) -> ProxyHeader {
+        func row(lan: Bool, hostname: String) -> LANModeSelector {
             store.lanMode = lan
             store.routes = [Route(hostname: hostname, port: 4000, pid: 0)]
             return StatusMenuController(store: store).lan
         }
         let off = row(lan: false, hostname: "web.localhost")
-        XCTAssertEqual(off.title.stringValue, "LAN mode")
-        XCTAssertEqual(off.title.font, NSFont.menuFont(ofSize: 0))
-        XCTAssertEqual(off.toggle.accessibilityLabel(), "LAN mode")
-        XCTAssertEqual(off.toggle.state, .off)
+        XCTAssertEqual(off.selector.label(forSegment: 0), "This Mac")
+        XCTAssertEqual(off.selector.label(forSegment: 1), "Network")
+        XCTAssertEqual(off.selector.trackingMode, .selectOne)
+        XCTAssertEqual(off.selector.accessibilityLabel(), "LAN mode")
+        XCTAssertEqual(off.selector.selectedSegment, 0)
         XCTAssertEqual(off.status.stringValue, "This Mac only")
         let on = row(lan: true, hostname: "web.local")
-        XCTAssertEqual(on.toggle.state, .on)
+        XCTAssertEqual(on.selector.selectedSegment, 1)
         XCTAssertEqual(on.status.stringValue, "Reachable on your network")
         XCTAssertEqual(row(lan: true, hostname: "web.localhost").status.stringValue, "Restart apps to update URLs")
         XCTAssertEqual(row(lan: false, hostname: "web.local").status.stringValue, "Restart apps to update URLs")
@@ -94,7 +95,7 @@ final class StatusMenuTests: XCTestCase {
         let controller = StatusMenuController(store: store)
         XCTAssertEqual(controller.lan.status.stringValue, "Switching…")
         XCTAssertEqual(controller.header.status.stringValue, "Connected")
-        XCTAssertFalse(controller.lan.toggle.isEnabled)
+        XCTAssertFalse(controller.lan.selector.isEnabled)
         XCTAssertFalse(controller.header.toggle.isEnabled)
         XCTAssertEqual(controller.menu.items.firstIndex { $0.representedObject is String }, 3)
     }
