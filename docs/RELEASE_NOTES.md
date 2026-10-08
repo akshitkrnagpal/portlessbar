@@ -1,3 +1,7 @@
+# Unreleased
+
+- Compact the Settings window with a smaller header and tighter rows, keeping every section visible without scrolling.
+
 # PortlessBar 0.2.0
 
 Switch Portless LAN mode from the menu bar to reach your apps from other devices on your network.

@@ -39,7 +39,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     init(login: LoginItemStore = LoginItemStore(), updates: UpdateStore = UpdateStore()) {
         self.login = login
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 550),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 470),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
         window.title = "Settings"
@@ -49,11 +49,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let toolbar = NSToolbar(identifier: "PortlessBarSettings")
         window.titlebarSeparatorStyle = .none
         window.toolbar = toolbar
-        window.minSize = NSSize(width: 520, height: 480)
+        window.contentMinSize = NSSize(width: 480, height: 470)
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("PortlessBarSettings")
+        window.setFrameAutosaveName("PortlessBarCompactSettings")
         window.contentViewController = NSHostingController(rootView: SettingsView(login: login, updates: updates))
-        window.setContentSize(NSSize(width: 600, height: 550))
+        window.setContentSize(NSSize(width: 480, height: 470))
         super.init(window: window)
         window.delegate = self
         window.center()
@@ -78,13 +78,13 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             Text("Settings")
-                .font(.system(size: 16, weight: .semibold))
-                .frame(height: 48)
+                .font(.system(size: 14, weight: .semibold))
+                .frame(height: 40)
                 .frame(maxWidth: .infinity)
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 12) {
                     identity
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
                         sectionTitle("General")
                         general
                     }
@@ -96,15 +96,16 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .ignoresSafeArea()
         .tint(.gray)
+        .controlSize(.small)
         .onAppear { login.refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             login.refresh()
@@ -117,13 +118,13 @@ struct SettingsView: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(title).font(.system(size: 15, weight: .semibold)).padding(.leading, 18)
+        Text(title).font(.system(size: 12, weight: .semibold)).padding(.leading, 12)
     }
 
     private var general: some View {
         HStack {
             Text("Launch at Login")
-                .font(.system(size: 14))
+                .font(.system(size: 13))
             Spacer()
             Toggle("Launch at Login", isOn: Binding(
                 get: { login.enabled },
@@ -134,30 +135,24 @@ struct SettingsView: View {
             .disabled(login.changing)
             .help("Open PortlessBar automatically when you log in")
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var identity: some View {
         VStack(spacing: 8) {
-            Text(PortlessWordmark.text).font(Font(PortlessWordmark.font(size: 26)))
-            Text(version)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(.primary.opacity(0.06), in: Capsule())
-            Text("Portless in your macOS menu bar.")
-                .font(.system(size: 14)).foregroundStyle(.secondary)
+            Text(PortlessWordmark.text).font(Font(PortlessWordmark.font(size: 22)))
+            Text("Portless in your macOS menu bar · \(version)")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
-        .padding(.vertical, 12)
-        .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var updateControls: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Updates")
             VStack(spacing: 0) {
                 HStack {
@@ -167,34 +162,34 @@ struct SettingsView: View {
                         get: { updates.automaticallyChecks }, set: { updates.setAutomaticChecks($0) }
                     )).labelsHidden().toggleStyle(.switch)
                 }
-                .padding(.horizontal, 18).padding(.vertical, 16)
-                Divider().padding(.horizontal, 18)
+                .padding(.horizontal, 12).padding(.vertical, 9)
+                Divider().padding(.horizontal, 12)
                 HStack {
-                    Text("Keep PortlessBar up to date").foregroundStyle(.secondary)
+                    Text("PortlessBar updates").foregroundStyle(.secondary)
                     Spacer()
                     Button("Check for Updates…") { updates.check() }.disabled(!updates.canCheck)
                 }
-                .padding(.horizontal, 18).padding(.vertical, 16)
+                .padding(.horizontal, 12).padding(.vertical, 9)
             }
             .font(.system(size: 13))
-            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 
     private var links: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Links")
             VStack(spacing: 0) {
                 ForEach(Array(SettingsLink.links.enumerated()), id: \.element.id) { index, link in
-                    if index > 0 { Divider().padding(.horizontal, 18) }
+                    if index > 0 { Divider().padding(.horizontal, 12) }
                     Button {
                         NSWorkspace.shared.open(link.url)
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             link.icon.image
                                 .renderingMode(.template)
                                 .resizable().scaledToFit()
-                                .frame(width: 18, height: 18)
+                                .frame(width: 16, height: 16)
                                 .accessibilityHidden(true)
                             Text(link.title)
                             Spacer(minLength: 12)
@@ -202,14 +197,14 @@ struct SettingsView: View {
                             Image(systemName: "arrow.up.right").foregroundStyle(.secondary)
                         }
                         .font(.system(size: 13))
-                        .padding(.horizontal, 18).padding(.vertical, 16)
+                        .padding(.horizontal, 12).padding(.vertical, 9)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help(link.url.absoluteString)
                 }
             }
-            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+            .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 

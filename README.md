@@ -64,7 +64,7 @@ Complete Portless's initial proxy setup, certificate trust, and any required hos
 
 No account. No analytics. No extra dashboard to manage.
 
-PortlessBar keeps the everyday controls in the menu bar. Settings holds Launch at Login, update preferences, and links to GitHub, X, and email.
+PortlessBar keeps the everyday controls in the menu bar. A compact Settings window fits Launch at Login, update preferences, and links to GitHub, X, and email without scrolling.
 
 ## Open source
 
