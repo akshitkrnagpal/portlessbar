@@ -4,6 +4,12 @@ import Carbon
 @main
 enum PortlessBarApp {
     @MainActor static func main() {
+        let arguments = CommandLine.arguments
+        if arguments.count == 3, arguments[1] == "--verify-portless-proxy" {
+            guard let pid = Int32(arguments[2]), pid > 1,
+                  Integration.isPortlessProxy(Integration.arguments(pid: pid)) else { exit(1) }
+            exit(0)
+        }
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate

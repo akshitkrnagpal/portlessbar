@@ -4,6 +4,37 @@ import XCTest
 
 final class StatusMenuTests: XCTestCase {
     @MainActor
+    func testMissingInstallationDisablesControlsAndOffersSetup() {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+        store.installationIssue = "Install the Portless CLI"
+        let controller = StatusMenuController(store: store)
+        XCTAssertEqual(controller.header.status.stringValue, "Portless unavailable")
+        XCTAssertFalse(controller.header.toggle.isEnabled)
+        XCTAssertFalse(controller.lan.selector.isEnabled)
+        XCTAssertEqual(controller.lan.status.stringValue, "Set up Portless first")
+        XCTAssertFalse(controller.menu.items.first { $0.title == "Portless setup…" }!.isHidden)
+        XCTAssertTrue(controller.menu.items.first { $0.title == "Settings…" }!.isEnabled)
+    }
+
+    @MainActor
+    func testUnsupportedNetworkModeKeepsProxyControlsAvailable() {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+        store.proxyRunning = true
+        store.supportsLAN = false
+        let controller = StatusMenuController(store: store)
+        XCTAssertTrue(controller.header.toggle.isEnabled)
+        XCTAssertFalse(controller.lan.selector.isEnabled)
+        XCTAssertEqual(controller.lan.status.stringValue, "Update Portless for Network")
+        XCTAssertFalse(controller.menu.items.first { $0.title == "Network mode setup…" }!.isHidden)
+    }
+
+    @MainActor
     func testRouteRowsUpdateWhileMenuIsOpen() async throws {
         _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -89,6 +120,7 @@ final class StatusMenuTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
         func row(lan: Bool, hostname: String) -> LANModeSelector {
+            store.proxyRunning = true
             store.lanMode = lan
             store.routes = [Route(hostname: hostname, port: 4000, pid: 0)]
             return StatusMenuController(store: store).lan

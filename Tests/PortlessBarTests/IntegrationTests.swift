@@ -56,7 +56,33 @@ final class IntegrationTests: XCTestCase {
     func testProxyInspectionRejectsAppsAndUnrelatedProcesses() {
         XCTAssertFalse(Integration.isPortlessProxy(Integration.arguments(pid: getpid())))
         XCTAssertFalse(Integration.isPortlessProxy(["node", "/usr/local/lib/node_modules/portless/dist/cli.js", "myapp", "npm", "run", "dev"]))
+        XCTAssertFalse(Integration.isPortlessProxy(["node", "/usr/local/lib/node_modules/portless/dist/cli.js", "myapp", "proxy", "start"]))
         XCTAssertTrue(Integration.isPortlessProxy(["node", "/usr/local/lib/node_modules/portless/dist/cli.js", "proxy", "start", "--foreground"]))
+    }
+
+    func testVersionedPackageAndExpiredFNMAliases() throws {
+        let root = try temporaryDirectory()
+        let package = root.appendingPathComponent("cache/portless@0.15.6")
+        let script = package.appendingPathComponent("dist/cli.js")
+        try FileManager.default.createDirectory(at: script.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: script)
+        try Data(#"{"name":"portless","bin":{"portless":"./dist/cli.js"}}"#.utf8)
+            .write(to: package.appendingPathComponent("package.json"))
+        XCTAssertTrue(Integration.isPortlessProxy(["bun", script.path, "proxy", "start"]))
+        let runtime = root.appendingPathComponent("installation/bin/node")
+        try FileManager.default.createDirectory(at: runtime.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: runtime)
+        try FileManager.default.createSymbolicLink(at: runtime.deletingLastPathComponent().appendingPathComponent("portless"), withDestinationURL: script)
+        let expired = root.appendingPathComponent("fnm_multishells/old-shell/bin/portless")
+        XCTAssertTrue(Integration.isPortlessProxy([runtime.path, expired.path, "proxy", "start"]))
+        XCTAssertFalse(Integration.isPortlessProxy([runtime.path, root.appendingPathComponent("unknown/bin/portless").path, "proxy", "start"]))
+        // A still-existing alias to an unrelated script must not fall back to the runtime's CLI.
+        try FileManager.default.createDirectory(at: expired.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: expired)
+        XCTAssertFalse(Integration.isPortlessProxy([runtime.path, expired.path, "proxy", "start"]))
+        try Data(#"{"name":"other-package","bin":{"portless":"./dist/cli.js"}}"#.utf8)
+            .write(to: package.appendingPathComponent("package.json"))
+        XCTAssertFalse(Integration.isPortlessProxy(["bun", script.path, "proxy", "start"]))
     }
 
     func testProxyInspectionAcceptsInstalledCLISymlink() throws {
@@ -101,6 +127,56 @@ final class IntegrationTests: XCTestCase {
             throw XCTSkip("Set PORTLESS_TEST_CLI and PORTLESS_TEST_NODE to run the live proxy test.")
         }
         return (cli, node)
+    }
+
+    @MainActor
+    func testLiveProxySurvivesRemovalOfFNMShellAlias() async throws {
+        let (cli, node) = try liveTools()
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        let bin = root.appendingPathComponent("installation/bin")
+        let shell = root.appendingPathComponent("fnm_multishells/old-shell/bin")
+        for directory in [state, bin, shell] { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        let runtime = bin.appendingPathComponent("node")
+        try FileManager.default.copyItem(atPath: node, toPath: runtime.path)
+        let stable = bin.appendingPathComponent("portless")
+        let alias = shell.appendingPathComponent("portless")
+        for link in [stable, alias] { try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: cli) }
+        var environment = ProcessInfo.processInfo.environment
+        environment["PORTLESS_STATE_DIR"] = state.path
+        environment["PORTLESS_SYNC_HOSTS"] = "0"
+        environment["PORTLESS_LAN"] = "0"
+        environment["PORTLESS_LAN_IP"] = ""
+        let port = try unusedPort()
+        let started = try await Commands.execute(executable: runtime.path,
+                                                arguments: [alias.path, "proxy", "start", "--no-tls", "-p", String(port)], environment: environment)
+        XCTAssertEqual(started.status, 0, started.output)
+        defer {
+            if let text = try? String(contentsOfFile: state.path + "/proxy.pid", encoding: .utf8),
+               let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 { kill(pid, SIGTERM) }
+        }
+        let pid = try XCTUnwrap(Snapshot.read(directory: state.path).proxyPID)
+        try FileManager.default.removeItem(at: shell.deletingLastPathComponent())
+        XCTAssertTrue(Integration.isPortlessProxy(Integration.arguments(pid: pid)))
+        let verifier = Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main.executableURL!
+            : URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent(".build/debug/PortlessBar")
+        let verified = try await Commands.execute(executable: verifier.path, arguments: ["--verify-portless-proxy", String(pid)], environment: environment)
+        XCTAssertEqual(verified.status, 0, verified.output)
+        let rejected = try await Commands.execute(executable: verifier.path, arguments: ["--verify-portless-proxy", String(getpid())], environment: environment)
+        XCTAssertEqual(rejected.status, 1, "The administrator verifier must reject unrelated processes.")
+        let command = ProxyCommand(executable: [runtime.path, stable.path], environment: environment)
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        await store.setLANMode(true)
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.lanMode)
+        await store.setLANMode(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.lanMode)
+        await store.setProxyRunning(false)
+        XCTAssertNil(store.error)
+        XCTAssertFalse(store.proxyRunning)
     }
 
     @MainActor

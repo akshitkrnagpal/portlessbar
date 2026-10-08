@@ -126,7 +126,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         rebuild()
         store.setMenuOpen(true)
-        Task { await store.refresh() }
+        Task { await store.refreshInstallation(force: true); await store.refresh() }
     }
     func menuDidClose(_ menu: NSMenu) { store.setMenuOpen(false) }
 
@@ -177,18 +177,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func updateState() {
         header.toggle.state = store.proxyRunning ? .on : .off
-        header.toggle.isEnabled = !store.transitioning
-        header.status.stringValue = store.transitioning && !store.switchingLAN
+        header.toggle.isEnabled = !store.transitioning && store.installationIssue == nil
+        header.status.stringValue = store.installationIssue != nil ? "Portless unavailable" : store.transitioning && !store.switchingLAN
             ? (store.proxyRunning ? "Disconnecting…" : "Connecting…")
             : (store.proxyRunning ? "Connected" : "Disconnected")
         lan.selector.selectedSegment = store.lanMode ? 1 : 0
-        lan.selector.isEnabled = !store.transitioning
+        lan.selector.isEnabled = !store.transitioning && store.installationIssue == nil && store.supportsLAN != false && store.canChooseLANMode
         // Running apps keep the hostname they registered with until they restart.
         let stale = store.routes.contains { $0.hostname.hasSuffix(".local") != store.lanMode }
-        lan.status.stringValue = store.switchingLAN ? "Switching…"
+        lan.status.stringValue = store.installationIssue != nil ? "Set up Portless first"
+            : store.supportsLAN == false ? "Update Portless for Network"
+            : !store.canChooseLANMode ? "Connect the proxy first"
+            : store.switchingLAN ? "Switching…"
             : stale ? "Restart apps to update URLs"
             : (store.lanMode ? "Reachable on your network" : "This Mac only")
-        errorItem?.isHidden = store.error == nil
+        errorItem?.title = store.installationIssue != nil ? "Portless setup…" : store.supportsLAN == false ? "Network mode setup…" : "Portless Error…"
+        errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false
         updateRoutes()
         header.resizeToFit()
         lan.resizeToFit()
@@ -209,13 +213,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func showSettings() { openSettings() }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func showError() {
-        guard let message = store.error else { return }
+        guard let message = store.error ?? store.installationIssue ?? (store.supportsLAN == false ? ServerStore.unsupportedLANMessage : nil) else { return }
         let alert = NSAlert()
         alert.messageText = "Portless needs attention"
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
+        if store.installationIssue != nil || store.supportsLAN == false { alert.addButton(withTitle: "Installation guide") }
         NSApp.activate()
-        alert.runModal()
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "https://github.com/vercel-labs/portless#installation")!)
+        }
         store.error = nil
         updateState()
     }
