@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import QuartzCore
 
 enum PortlessWordmark {
     static let text = "portlessbar"
@@ -52,13 +53,34 @@ final class ProxyHeader: NSView {
         invalidateIntrinsicContentSize()
         frame.size = NSSize(width: max(frame.width, intrinsicContentSize.width), height: intrinsicContentSize.height)
     }
+    func setConnected(_ connected: Bool) {
+        let state: NSControl.StateValue = connected ? .on : .off
+        // Reassigning a clicked switch's state interrupts its native animation.
+        guard toggle.state != state else { return }
+        guard window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            toggle.state = state
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            toggle.animator().state = state
+        }
+    }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+@MainActor
+private final class SelectionSnapshot: NSImageView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 @MainActor
 final class LANModeSelector: NSView {
     let selector = NSSegmentedControl(labels: ["This Mac", "Network"], trackingMode: .selectOne, target: nil, action: nil)
     let status = NSTextField(labelWithString: "This Mac only")
+    private var presentedSegment: Int?
+    private var selectionOverlay: NSImageView?
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 50))
@@ -90,6 +112,52 @@ final class LANModeSelector: NSView {
     func resizeToFit() {
         invalidateIntrinsicContentSize()
         frame.size = NSSize(width: max(frame.width, intrinsicContentSize.width), height: intrinsicContentSize.height)
+    }
+    func setNetwork(_ network: Bool) {
+        let segment = network ? 1 : 0
+        let previous = presentedSegment
+        presentedSegment = segment
+        guard previous != segment else {
+            if selector.selectedSegment != segment { selector.selectedSegment = segment }
+            return
+        }
+        selectionOverlay?.removeFromSuperview()
+        selectionOverlay = nil
+        // AppKit does not animate selectedSegment. Fade the previous native
+        // rendering into the new selection, including when a click already
+        // changed selectedSegment before the model received the action.
+        guard let previous, window?.isVisible == true,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            selector.selectedSegment = segment
+            return
+        }
+        layoutSubtreeIfNeeded()
+        selector.selectedSegment = previous
+        guard let bitmap = selector.bitmapImageRepForCachingDisplay(in: selector.bounds) else {
+            selector.selectedSegment = segment
+            return
+        }
+        selector.cacheDisplay(in: selector.bounds, to: bitmap)
+        selector.selectedSegment = segment
+        let image = NSImage(size: selector.bounds.size)
+        image.addRepresentation(bitmap)
+        let overlay = SelectionSnapshot(frame: selector.frame)
+        overlay.wantsLayer = true
+        overlay.image = image
+        overlay.imageScaling = .scaleAxesIndependently
+        overlay.setAccessibilityElement(false)
+        addSubview(overlay, positioned: .above, relativeTo: selector)
+        selectionOverlay = overlay
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            overlay.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            Task { @MainActor [weak self] in
+                overlay.removeFromSuperview()
+                if self?.selectionOverlay === overlay { self?.selectionOverlay = nil }
+            }
+        }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
@@ -176,12 +244,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     private func updateState() {
-        header.toggle.state = store.proxyRunning ? .on : .off
+        header.setConnected(store.proxyToggleOn)
         header.toggle.isEnabled = !store.transitioning && store.installationIssue == nil
         header.status.stringValue = store.installationIssue != nil ? "Portless unavailable" : store.transitioning && !store.switchingLAN
-            ? (store.proxyRunning ? "Disconnecting…" : "Connecting…")
-            : (store.proxyRunning ? "Connected" : "Disconnected")
-        lan.selector.selectedSegment = store.lanMode ? 1 : 0
+            ? (store.proxyToggleOn ? "Connecting…" : "Disconnecting…")
+            : (store.proxyToggleOn ? "Connected" : "Disconnected")
+        lan.setNetwork(store.lanSelectionOn)
         lan.selector.isEnabled = !store.transitioning && store.installationIssue == nil && store.supportsLAN != false && store.canChooseLANMode
         // Running apps keep the hostname they registered with until they restart.
         let stale = store.routes.contains { $0.hostname.hasSuffix(".local") != store.lanMode }

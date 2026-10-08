@@ -4,6 +4,56 @@ import XCTest
 
 final class StatusMenuTests: XCTestCase {
     @MainActor
+    func testNetworkSelectionVisiblyFadesAndSettles() async throws {
+        _ = NSApplication.shared
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { throw XCTSkip("Reduce Motion is enabled") }
+        let row = LANModeSelector()
+        let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 270, height: 50),
+                              styleMask: .borderless, backing: .buffered, defer: false)
+        window.contentView = row
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        row.setNetwork(false)
+        // Native controls select the clicked segment before delivering their action.
+        row.selector.selectedSegment = 1
+        row.setNetwork(true)
+        XCTAssertEqual(row.selector.selectedSegment, 1)
+        let previousRendering = try XCTUnwrap(row.subviews.compactMap { $0 as? NSImageView }.first)
+        try await Task.sleep(for: .milliseconds(80))
+        let opacity = try XCTUnwrap(previousRendering.layer?.presentation()?.opacity)
+        XCTAssertGreaterThan(opacity, 0, "The previous selection should still be partially visible mid-transition.")
+        XCTAssertLessThan(opacity, 1, "The selection should fade instead of jumping between positions.")
+        row.setNetwork(true) // A polling update must leave the animation in progress.
+        XCTAssertTrue(previousRendering.superview === row)
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertNil(previousRendering.superview)
+        XCTAssertEqual(row.selector.selectedSegment, 1)
+    }
+
+    @MainActor
+    func testProxyClickKeepsRequestedPositionUntilTheCommandFinishes() async throws {
+        _ = NSApplication.shared
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let command = ProxyCommand(executable: ["/bin/sh", "-c", "sleep 0.3; echo 'fixture failed'; exit 1"])
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, command: command, monitor: false)
+        let controller = StatusMenuController(store: store)
+        controller.header.toggle.state = .on
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(controller.header.toggle.action), to: controller.header.toggle.target, from: controller.header.toggle))
+        let deadline = Date().addingTimeInterval(2)
+        while !store.transitioning && Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        XCTAssertTrue(store.transitioning)
+        XCTAssertFalse(store.proxyRunning)
+        XCTAssertEqual(controller.header.toggle.state, .on, "Polling must not undo the clicked position while connecting.")
+        while store.transitioning && Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        XCTAssertFalse(store.transitioning)
+        XCTAssertEqual(controller.header.toggle.state, .off, "A failed command must restore the observed state.")
+        XCTAssertEqual(store.error, "fixture failed")
+    }
+
+    @MainActor
     func testMissingInstallationDisablesControlsAndOffersSetup() {
         _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

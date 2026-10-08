@@ -8,6 +8,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <libproc.h>
+#include <stdlib.h>
 
 int pb_arguments(int pid, char *buffer, size_t *size) {
     int mib[] = { CTL_KERN, KERN_PROCARGS2, pid };
@@ -15,6 +16,40 @@ int pb_arguments(int pid, char *buffer, size_t *size) {
 }
 int pb_executable(int pid, char *buffer, size_t size) {
     return proc_pidpath(pid, buffer, (uint32_t)size);
+}
+// Return the generation of the TCP listener serving the requested loopback
+// address. Comparing it across a probe detects a replaced socket or reused PID.
+uint64_t pb_listener(int pid, int port, int ipv6) {
+    if (pid <= 1 || port < 1 || port > 65535) return 0;
+    int required = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, NULL, 0);
+    if (required <= 0 || required > 16 * 1024 * 1024) return 0;
+    int capacity = required + 32 * sizeof(struct proc_fdinfo);
+    struct proc_fdinfo *fds = malloc(capacity);
+    if (!fds) return 0;
+    int bytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, capacity);
+    uint64_t generation = 0;
+    for (int i = 0; i < bytes / (int)sizeof(*fds); i++) {
+        if (fds[i].proc_fdtype != PROX_FDTYPE_SOCKET) continue;
+        struct socket_fdinfo socket = {0};
+        if (proc_pidfdinfo(pid, fds[i].proc_fd, PROC_PIDFDSOCKETINFO, &socket, sizeof(socket)) != sizeof(socket)
+            || socket.psi.soi_kind != SOCKINFO_TCP) continue;
+        struct tcp_sockinfo *tcp = &socket.psi.soi_proto.pri_tcp;
+        struct in_sockinfo *address = &tcp->tcpsi_ini;
+        if (tcp->tcpsi_state != TSI_S_LISTEN || ntohs((uint16_t)address->insi_lport) != port) continue;
+        if (ipv6) {
+            if (!(address->insi_vflag & INI_IPV6)
+                || !(IN6_IS_ADDR_UNSPECIFIED(&address->insi_laddr.ina_6)
+                     || IN6_IS_ADDR_LOOPBACK(&address->insi_laddr.ina_6))) continue;
+        } else {
+            uint32_t local = address->insi_laddr.ina_46.i46a_addr4.s_addr;
+            if (!(address->insi_vflag & INI_IPV4)
+                || (local != htonl(INADDR_ANY) && local != htonl(INADDR_LOOPBACK))) continue;
+        }
+        generation = address->insi_gencnt;
+        break;
+    }
+    free(fds);
+    return generation;
 }
 static int check_port(int port, int family) {
     int fd = socket(family, SOCK_STREAM, 0);
