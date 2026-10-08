@@ -1,19 +1,14 @@
-# Unreleased
+# PortlessBar 0.3.0
 
-- Add vertical padding around the menu's proxy controls and space between each control and its status text.
-- Compact the Settings window with a smaller header and tighter rows, keeping every section visible without scrolling.
+Choose where your apps are reachable with clearer menu controls and a smaller Settings window.
 
-# PortlessBar 0.2.0
+- Replace the LAN switch with a native **This Mac / Network** selector. The status below it shows the current mode and reminds you when running apps need a restart to update their URLs.
+- Fit Launch at Login, update controls and links into a compact Settings window without scrolling at its default size.
+- Add space around the proxy controls and between each control and its status text. The menu also accommodates larger fonts and wider status messages.
 
-Switch Portless LAN mode from the menu bar to reach your apps from other devices on your network.
+The release process now verifies the public update feed and archive, including the checksum, Sparkle signature, both CPU architectures, code signature, stapled notarization ticket and Gatekeeper acceptance.
 
-- Change LAN mode with a second switch below the proxy switch. A running proxy restarts in the selected mode.
-- Keep the selected mode while disconnected and use it on the next connection.
-- Update the Portless startup service when it manages the proxy, preserving its installed runtime and supported options.
-- Use one administrator prompt for privileged proxy restarts.
-- Show when running apps need a restart to register URLs for the new mode.
-
-Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. LAN switching was tested with Portless 0.15.6. Portless 0.8.0 remains supported for proxy controls but does not support LAN mode. Custom TLDs are not restored after turning LAN mode on and then off.
+Requires macOS 14 or newer, the Portless CLI and its supported Node.js runtime. LAN mode is supported with Portless 0.15.6. Portless 0.8.0 remains supported for proxy controls but does not support LAN mode. Switching modes restarts a running proxy; restart your development apps to register their new URLs. Custom TLDs are not restored after turning LAN mode on and then off.
 
 The universal app supports Apple Silicon and Intel. Move `PortlessBar.app` to `/Applications` before enabling Launch at Login.
 
