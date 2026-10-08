@@ -54,12 +54,51 @@ final class ProxyHeader: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
-/// Native proxy and LAN mode toggles and URL rows, with one entry point to settings.
+@MainActor
+final class LANModeSelector: NSView {
+    let selector = NSSegmentedControl(labels: ["This Mac", "Network"], trackingMode: .selectOne, target: nil, action: nil)
+    let status = NSTextField(labelWithString: "This Mac only")
+
+    init() {
+        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 42))
+        autoresizingMask = [.width]
+        selector.segmentDistribution = .fillEqually
+        selector.setAccessibilityLabel("LAN mode")
+        status.font = .menuFont(ofSize: max(11, NSFont.menuFont(ofSize: 0).pointSize - 1))
+        status.textColor = .secondaryLabelColor
+        for view in [selector, status] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            selector.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            selector.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            selector.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            status.leadingAnchor.constraint(equalTo: selector.leadingAnchor),
+            status.topAnchor.constraint(equalTo: selector.bottomAnchor),
+            status.trailingAnchor.constraint(lessThanOrEqualTo: selector.trailingAnchor),
+            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -2)
+        ])
+        resizeToFit()
+    }
+    override var isFlipped: Bool { true }
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: max(270, max(selector.intrinsicContentSize.width, status.intrinsicContentSize.width) + 26),
+               height: max(42, selector.intrinsicContentSize.height + status.intrinsicContentSize.height + 6))
+    }
+    func resizeToFit() {
+        invalidateIntrinsicContentSize()
+        frame.size = NSSize(width: max(frame.width, intrinsicContentSize.width), height: intrinsicContentSize.height)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+/// Native proxy controls and URL rows, with one entry point to settings.
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     let header = ProxyHeader()
-    let lan = ProxyHeader(title: "LAN mode", font: .menuFont(ofSize: 0), label: "LAN mode")
+    let lan = LANModeSelector()
     private let store: ServerStore
     private let openSettings: () -> Void
     private var subscription: AnyCancellable?
@@ -75,8 +114,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         header.toggle.target = self
         header.toggle.action = #selector(toggleProxy(_:))
-        lan.toggle.target = self
-        lan.toggle.action = #selector(toggleLAN(_:))
+        lan.selector.target = self
+        lan.selector.action = #selector(selectLANMode(_:))
         rebuild()
         subscription = store.objectWillChange.sink { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.updateState() }
@@ -99,7 +138,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
-        for view in [header, lan] {
+        for view in [header, lan] as [NSView] {
             let item = NSMenuItem()
             item.view = view
             menu.addItem(item)
@@ -141,8 +180,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         header.status.stringValue = store.transitioning && !store.switchingLAN
             ? (store.proxyRunning ? "Disconnecting…" : "Connecting…")
             : (store.proxyRunning ? "Connected" : "Disconnected")
-        lan.toggle.state = store.lanMode ? .on : .off
-        lan.toggle.isEnabled = !store.transitioning
+        lan.selector.selectedSegment = store.lanMode ? 1 : 0
+        lan.selector.isEnabled = !store.transitioning
         // Running apps keep the hostname they registered with until they restart.
         let stale = store.routes.contains { $0.hostname.hasSuffix(".local") != store.lanMode }
         lan.status.stringValue = store.switchingLAN ? "Switching…"
@@ -159,8 +198,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let enabled = sender.state == .on
         Task { await store.setProxyRunning(enabled) }
     }
-    @objc private func toggleLAN(_ sender: NSSwitch) {
-        let enabled = sender.state == .on
+    @objc private func selectLANMode(_ sender: NSSegmentedControl) {
+        let enabled = sender.selectedSegment == 1
         Task { await store.setLANMode(enabled) }
     }
     @objc private func openServer(_ item: NSMenuItem) {
