@@ -36,7 +36,7 @@
 
 - **Open apps in one click.** Your current Portless registrations appear as URLs. Pick one to open it in your default browser.
 - **One switch for the proxy.** Connect or disconnect without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
-- **One switch for LAN mode.** Reach your apps from other devices on your network, or keep them on this Mac. Switching restarts the proxy; running apps get their new URLs when you restart them.
+- **Choose This Mac or Network.** Reach your apps from other devices on your network, or keep them on this Mac. Switching restarts the proxy; running apps get their new URLs when you restart them.
 - **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
 - **Feels at home on macOS.** A native menu, a monospace identity, and a small Settings screen.
 

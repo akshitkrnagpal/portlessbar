@@ -25,18 +25,34 @@ final class StatusMenuTests: XCTestCase {
     }
 
     @MainActor
-    func testHeaderAccommodatesLargerFontsAndWideMenus() {
+    func testControlRowsAccommodateLargerFontsAndWideMenus() {
         let header = ProxyHeader()
+        let defaultHeaderHeight = header.frame.height
         header.title.font = PortlessWordmark.font(size: 28)
         header.status.font = .menuFont(ofSize: 24)
         header.resizeToFit()
         header.layoutSubtreeIfNeeded()
-        XCTAssertGreaterThan(header.frame.height, 42)
+        XCTAssertGreaterThan(header.frame.height, defaultHeaderHeight)
         XCTAssertLessThanOrEqual(header.title.frame.maxX, header.toggle.frame.minX)
-        XCTAssertLessThanOrEqual(header.status.frame.maxY, header.bounds.maxY)
+        XCTAssertLessThanOrEqual(header.status.frame.maxY, header.bounds.maxY - 8)
+        XCTAssertGreaterThanOrEqual(header.toggle.frame.minY, 8)
+        XCTAssertLessThanOrEqual(header.toggle.frame.maxY, header.bounds.maxY - 8)
         header.frame.size.width = 600
         header.layoutSubtreeIfNeeded()
         XCTAssertEqual(header.toggle.frame.maxX, 588, accuracy: 1)
+
+        let lan = LANModeSelector()
+        let defaultLANHeight = lan.frame.height
+        lan.status.font = .menuFont(ofSize: 24)
+        lan.status.stringValue = "Restart apps to update URLs"
+        lan.resizeToFit()
+        lan.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(lan.frame.height, defaultLANHeight)
+        XCTAssertLessThanOrEqual(lan.status.frame.maxX, lan.bounds.maxX)
+        XCTAssertLessThanOrEqual(lan.status.frame.maxY, lan.bounds.maxY - 8)
+        lan.frame.size.width = 600
+        lan.layoutSubtreeIfNeeded()
+        XCTAssertEqual(lan.selector.frame.maxX, 588, accuracy: 1)
     }
 
     @MainActor
