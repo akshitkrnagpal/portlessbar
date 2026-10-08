@@ -221,7 +221,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         if store.installationIssue != nil || store.supportsLAN == false { alert.addButton(withTitle: "Installation guide") }
         NSApp.activate()
         if alert.runModal() == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "https://github.com/vercel-labs/portless#installation")!)
+            NSWorkspace.shared.open(URL(string: "https://github.com/vercel-labs/portless#install")!)
         }
         store.error = nil
         updateState()
