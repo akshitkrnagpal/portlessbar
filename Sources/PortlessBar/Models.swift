@@ -36,23 +36,55 @@ enum Integration {
             result.append(String(decoding: data[start..<cursor], as: UTF8.self))
             cursor += 1
         }
+        // argv can retain an FNM shell alias after its symlink has disappeared.
+        // The kernel still knows the actual runtime used by the live process.
+        var executable = [CChar](repeating: 0, count: 4096)
+        if pb_executable(pid, &executable, executable.count) > 0 {
+            result[0] = String(decoding: executable.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        }
+        if result.count > 1, let script = portlessScript(result[1], runtime: result[0]) {
+            result[1] = script.path
+        }
         return result
+    }
+
+    static func portlessScript(_ path: String, runtime: String? = nil) -> URL? {
+        let original = URL(fileURLWithPath: path)
+        let script = original.resolvingSymlinksInPath()
+        func recognized(_ file: URL) -> Bool {
+            if file.path.hasSuffix("/portless/dist/cli.js") || file.path.hasSuffix("/portless/dist/cli.mjs") { return true }
+            // Bun and other installers can store packages under versioned names.
+            let packageRoot = file.deletingLastPathComponent().deletingLastPathComponent()
+            guard let data = try? Data(contentsOf: packageRoot.appendingPathComponent("package.json")),
+                  let package = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  package["name"] as? String == "portless" else { return false }
+            let bin = package["bin"] as? String ?? (package["bin"] as? [String: String])?["portless"]
+            return bin.map { packageRoot.appendingPathComponent($0).standardizedFileURL.resolvingSymlinksInPath() == file } ?? false
+        }
+        if recognized(script) { return script }
+        // Never reinterpret an existing, unrelated script as Portless.
+        guard !FileManager.default.fileExists(atPath: original.path),
+              original.pathComponents.contains("fnm_multishells"), original.path.hasSuffix("/bin/portless"),
+              let runtime else { return nil }
+        let installed = URL(fileURLWithPath: runtime).resolvingSymlinksInPath()
+            .deletingLastPathComponent().appendingPathComponent("portless").resolvingSymlinksInPath()
+        return FileManager.default.fileExists(atPath: installed.path) && recognized(installed) ? installed : nil
     }
 
     static func isPortless(_ arguments: [String]) -> Bool {
         guard arguments.count > 1 else { return false }
-        let executable = URL(fileURLWithPath: arguments[0]).lastPathComponent
-        guard ["node", "bun", "portless"].contains(executable) else { return false }
+        let executable = URL(fileURLWithPath: arguments[0]).resolvingSymlinksInPath().lastPathComponent
+        guard ["node", "nodejs", "bun", "portless"].contains(executable) else { return false }
         if executable == "portless" { return true }
         // npm and Bun launch the CLI through bin symlinks; argv retains that link.
-        let script = URL(fileURLWithPath: arguments[1]).resolvingSymlinksInPath().path
-        return script.hasSuffix("/portless/dist/cli.js") || script.hasSuffix("/portless/dist/cli.mjs")
+        return portlessScript(arguments[1], runtime: arguments[0]) != nil
     }
 
     static func isPortlessProxy(_ arguments: [String]) -> Bool {
-        guard isPortless(arguments), let proxy = arguments.firstIndex(of: "proxy"),
-              arguments.indices.contains(proxy + 1) else { return false }
-        return arguments[proxy + 1] == "start"
+        guard isPortless(arguments) else { return false }
+        let executable = URL(fileURLWithPath: arguments[0]).resolvingSymlinksInPath().lastPathComponent
+        let proxy = executable == "portless" ? 1 : 2
+        return arguments.indices.contains(proxy + 1) && arguments[proxy] == "proxy" && arguments[proxy + 1] == "start"
     }
 
     static func readRoutes(directory: String) throws -> [Route] {

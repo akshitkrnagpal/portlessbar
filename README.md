@@ -88,6 +88,8 @@ Tested with **Portless 0.8.0 and 0.15.6**. Integration uses Portless's state fil
 
 LAN mode needs a Portless version that has LAN mode; it was tested with 0.15.6. Turning LAN mode off returns to `.localhost`, so set a custom TLD again in Portless.
 
+If Portless or its supported Node.js runtime is missing, the menu shows setup instructions and disables the proxy controls. Network mode is disabled for older CLI versions before a running proxy is stopped. FNM installations use stable paths so proxies keep working after their original shell closes.
+
 Custom CLI and registry paths can be supplied with `PORTLESSBAR_CLI` and `PORTLESS_STATE_DIR` when launching the app directly from Terminal; Finder and login launches do not inherit your shell's environment.
 
 </details>

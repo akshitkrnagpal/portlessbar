@@ -7,10 +7,14 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
+#include <libproc.h>
 
 int pb_arguments(int pid, char *buffer, size_t *size) {
     int mib[] = { CTL_KERN, KERN_PROCARGS2, pid };
     return sysctl(mib, 3, buffer, size, NULL, 0);
+}
+int pb_executable(int pid, char *buffer, size_t size) {
+    return proc_pidpath(pid, buffer, (uint32_t)size);
 }
 static int check_port(int port, int family) {
     int fd = socket(family, SOCK_STREAM, 0);

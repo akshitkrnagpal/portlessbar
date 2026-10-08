@@ -54,6 +54,65 @@ final class RecoveryTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testMissingCLIIsReportedBeforeLifecycleChanges() async throws {
+        let root = try temporaryDirectory()
+        let command = ProxyCommand(executable: [root.appendingPathComponent("missing-portless").path])
+        let store = ServerStore(stateDirectory: root.path, storageDirectory: root.appendingPathComponent("app"), command: command, monitor: false)
+        await store.refresh()
+        XCTAssertTrue(try XCTUnwrap(store.installationIssue).contains("Install the Portless CLI"))
+        await store.setProxyRunning(true)
+        XCTAssertEqual(store.error, store.installationIssue)
+        await store.setLANMode(true)
+        XCTAssertEqual(store.error, store.installationIssue)
+        XCTAssertFalse(store.proxyRunning)
+        XCTAssertFalse(store.lanMode)
+    }
+
+    @MainActor
+    func testReusedPIDNeverStopsAnUnrelatedProcess() async throws {
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        try observeProxy(pid: getpid(), in: state)
+        let command = ProxyCommand(executable: ["/usr/bin/true"])
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        await store.setProxyRunning(false)
+        XCTAssertTrue(try XCTUnwrap(store.error).contains("No process was stopped"))
+        XCTAssertTrue(store.proxyRunning)
+        await store.setLANMode(true)
+        XCTAssertTrue(try XCTUnwrap(store.error).contains("No process was stopped"))
+        XCTAssertFalse(store.lanMode)
+        XCTAssertTrue(store.proxyRunning)
+    }
+
+    @MainActor
+    func testUnsupportedLANModeIsRejectedBeforeStoppingProxy() async throws {
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        let script = root.appendingPathComponent("portless/dist/cli.js")
+        let node = root.appendingPathComponent("portless/bin/node")
+        for directory in [state, script.deletingLastPathComponent(), node.deletingLastPathComponent()] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        try observeProxy(pid: getpid(), in: state)
+        try Data("#!/usr/bin/env node\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let unexpected = root.appendingPathComponent("unexpected-command")
+        try Data(("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo v24.0.0; elif [ \"$2\" = \"--help\" ]; then echo 'portless proxy start --https'; else touch "
+                  + Integration.quote(unexpected.path) + "; exit 77; fi\n").utf8).write(to: node)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: node.path)
+        let command = ProxyCommand(executable: [script.path])
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command, monitor: false)
+        await store.setLANMode(true)
+        XCTAssertEqual(store.supportsLAN, false)
+        XCTAssertEqual(store.error, ServerStore.unsupportedLANMessage)
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertFalse(store.lanMode)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: unexpected.path))
+    }
+
     func testReconnectKeepsEqualsValuesAndFutureFlags() {
         let args = ["--port=1355", "--https", "--foreground", "--state-dir", "/tmp/state",
                     "--tld=dev", "--tld", "test", "--cert=/tmp/cert", "--key", "/tmp/key",
@@ -202,7 +261,7 @@ final class RecoveryTests: XCTestCase {
         XCTAssertTrue(store.lanMode)
         XCTAssertEqual(prompts.scripts.count, 1, "Stopping and starting must share one administrator prompt")
         let on = try XCTUnwrap(prompts.scripts.first)
-        let verified = try XCTUnwrap(on.range(of: "/bin/ps -p \(pid) "))
+        let verified = try XCTUnwrap(on.range(of: "'--verify-portless-proxy' '\(pid)'"))
         let stopped = try XCTUnwrap(on.range(of: "'proxy' 'stop'"))
         let waited = try XCTUnwrap(on.range(of: "/bin/kill -0 \(pid) "))
         let restarted = try XCTUnwrap(on.range(of: "'proxy' 'start'"))
@@ -313,8 +372,11 @@ final class RecoveryTests: XCTestCase {
         try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
         let file = storage.appendingPathComponent("proxy.json")
         try JSONEncoder().encode(ProxyConfiguration(port: 1355, tls: false, extras: ["--tld", "test"])).write(to: file)
-        // Any command would fail: the CLI is missing and elevation is refused.
-        var command = ProxyCommand(executable: ["portlessbar-missing-cli-713"])
+        // Installation is present, but any lifecycle command or elevation would fail.
+        let cli = root.appendingPathComponent("portless")
+        try Data("#!/bin/sh\nexit 77\n".utf8).write(to: cli)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cli.path)
+        var command = ProxyCommand(executable: [cli.path])
         command.authorize = { _ in throw PortlessError.message("Unexpected administrator prompt") }
         let store = ServerStore(stateDirectory: root.path, storageDirectory: storage, command: command, monitor: false)
         XCTAssertFalse(store.lanMode)
@@ -453,6 +515,9 @@ final class RecoveryTests: XCTestCase {
         let command = ProxyCommand(environment: ["PORTLESSBAR_CLI": cli.path, "PATH": root.path + "/compatible"], homeDirectory: root.path)
         let result = try await command.run(["proxy", "start"], directory: root.path)
         XCTAssertEqual(result.output, "runtime-24\n")
+        try Data(#"{"name":"portless","engines":{"node":">=999"}}"#.utf8).write(to: package.appendingPathComponent("package.json"))
+        let unavailable = await command.installationIssue()
+        XCTAssertTrue(try XCTUnwrap(unavailable).contains("Node.js 999 or newer"))
     }
 
     func testAdministratorWatchdogTerminatesHungCLIWithoutPrompt() async throws {
