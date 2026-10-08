@@ -40,7 +40,7 @@ enum Integration {
         // The kernel still knows the actual runtime used by the live process.
         var executable = [CChar](repeating: 0, count: 4096)
         if pb_executable(pid, &executable, executable.count) > 0 {
-            result[0] = String(cString: executable)
+            result[0] = String(decoding: executable.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
         }
         if result.count > 1, let script = portlessScript(result[1], runtime: result[0]) {
             result[1] = script.path
