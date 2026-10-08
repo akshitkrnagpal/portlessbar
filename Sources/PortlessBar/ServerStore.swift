@@ -101,7 +101,7 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
         else if let raw = try? String(contentsOfFile: directory + "/proxy.tld", encoding: .utf8) {
             tlds = [raw.trimmingCharacters(in: .whitespacesAndNewlines)]
         } else { tlds = [] }
-        if Integration.isPortlessProxy(args), let proxy = args.firstIndex(of: "proxy") {
+        if let proxy = Integration.proxyStartIndex(args) {
             result.extras = reconnectExtras(Array(args.dropFirst(proxy + 2)))
         } else {
             for tld in tlds where !tld.isEmpty { result.extras += ["--tld", tld] }
@@ -211,7 +211,7 @@ struct ProxyCommand: Sendable {
         let runtime = URL(fileURLWithPath: resolved).resolvingSymlinksInPath()
         if ["node", "nodejs", "bun"].contains(runtime.lastPathComponent) {
             var arguments = Array(executable.dropFirst())
-            if let script = arguments.first, let stable = Integration.portlessScript(script, runtime: runtime.path) { arguments[0] = stable.path }
+            if let script = arguments.first, let stable = Integration.portlessScript(script) { arguments[0] = stable.path }
             return (runtime.path, arguments, path)
         }
         // A Node-based CLI must use a runtime compatible with its own package,
@@ -289,12 +289,12 @@ struct ProxyCommand: Sendable {
         let resolved = prepared.executable
         var command = ""
         if let pid = verifyingPID {
-            // A root-owned proxy's argv isn't readable through sysctl as a normal user.
-            // Validate it inside the authorized command before delegating to Portless.
+            // A root-owned proxy's sockets may be inaccessible to a normal user.
+            // Validate ownership and protocol inside the authorized command.
             guard let verifier = Bundle.main.executableURL?.path else {
                 throw PortlessError.message("Could not verify the proxy process. Reopen PortlessBar and try again.")
             }
-            command = [verifier, "--verify-portless-proxy", String(pid)].map(Integration.quote).joined(separator: " ")
+            command = [verifier, "--verify-portless-proxy", String(pid), directory].map(Integration.quote).joined(separator: " ")
                 + " || { echo 'The saved PID no longer identifies a Portless proxy. No process was stopped.'; exit 1; }; "
         }
         // A CLI given as a runtime and script, like an installed service's, brings its own Node.
@@ -367,6 +367,11 @@ final class ServerStore: ObservableObject {
     @Published var transitioning = false
     @Published var lanMode = false
     @Published var switchingLAN = false
+    @Published private var proxyToggleDuringLANChange: Bool?
+    @Published private var requestedProxyState: Bool?
+    @Published private var requestedLANMode: Bool?
+    var proxyToggleOn: Bool { requestedProxyState ?? proxyToggleDuringLANChange ?? proxyRunning }
+    var lanSelectionOn: Bool { requestedLANMode ?? lanMode }
     @Published var error: String?
     @Published var installationIssue: String?
     @Published var supportsLAN: Bool?
@@ -501,12 +506,14 @@ final class ServerStore: ObservableObject {
         return false
     }
 
-    private func rootOwnedProxy(_ pid: Int32?) throws -> Bool {
-        let args = pid.map(Integration.arguments) ?? []
-        if !args.isEmpty && !Integration.isPortlessProxy(args) {
+    private func rootOwnedProxy(_ pid: Int32?) async throws -> Bool {
+        // Socket inspection of another user's proxy may require elevation.
+        // The same verifier runs inside the authorized command before stopping it.
+        if let pid, kill(pid, 0) != 0 && errno == EPERM { return true }
+        guard let pid, await Integration.verifyProxy(pid: pid, directory: stateDirectory) else {
             throw PortlessError.message("Portless's saved PID \(pid ?? 0) does not identify a Portless proxy. No process was stopped. Check the running proxy and its state directory in Terminal before trying again.")
         }
-        return pid.map { kill($0, 0) != 0 && errno == EPERM } ?? false
+        return false
     }
 
     func open(_ hostname: String) {
@@ -515,10 +522,11 @@ final class ServerStore: ObservableObject {
 
     func setProxyRunning(_ enabled: Bool) async {
         guard !transitioning else { return }
+        requestedProxyState = enabled
         transitioning = true
         error = nil
         readError = nil
-        defer { transitioning = false }
+        defer { requestedProxyState = nil; transitioning = false }
         do {
             // A monitoring refresh and a lifecycle action share one coherent read.
             guard let snapshot = await refresh() else {
@@ -530,7 +538,7 @@ final class ServerStore: ObservableObject {
             // State files left by a killed proxy must not override the mode chosen while disconnected.
             let config = (snapshot.configuration ?? configuration)?.settingLAN(lanMode)
             if enabled && config?.lan == true && supportsLAN == false { throw PortlessError.message(Self.unsupportedLANMessage) }
-            let rootOwned = try enabled ? false : rootOwnedProxy(snapshot.proxyPID)
+            let rootOwned = enabled ? false : try await rootOwnedProxy(snapshot.proxyPID)
             let arguments = enabled ? (config?.startArguments ?? ["proxy", "start"]) : ["proxy", "stop"]
             let environment = enabled ? (config?.startEnvironment ?? [:]) : [:]
             if (enabled && (config?.port ?? 65535) < 1024) || rootOwned {
@@ -547,15 +555,19 @@ final class ServerStore: ObservableObject {
 
     func setLANMode(_ enabled: Bool) async {
         guard !transitioning else { return }
+        requestedLANMode = enabled
         transitioning = true
         switchingLAN = true
         error = nil
         readError = nil
-        defer { transitioning = false; switchingLAN = false }
+        defer { requestedLANMode = nil; proxyToggleDuringLANChange = nil; transitioning = false; switchingLAN = false }
         do {
             guard let snapshot = await refresh() else {
                 throw PortlessError.message(error ?? "Could not read Portless state.")
             }
+            // A mode change restarts an enabled proxy. Keep the user's switch
+            // setting visible while polling still tracks the real stop/start.
+            proxyToggleDuringLANChange = snapshot.proxyRunning
             if let installationIssue { throw PortlessError.message(installationIssue) }
             if lanMode == enabled { return }
             if supportsLAN == false { throw PortlessError.message(Self.unsupportedLANMessage) }
@@ -575,7 +587,7 @@ final class ServerStore: ObservableObject {
                 var installer = command
                 if let executable = install.executable { installer.executable = executable }
                 try await installer.runAsAdministrator(install.arguments, directory: state, environment: install.environment)
-            } else if try rootOwnedProxy(snapshot.proxyPID) || target.port < 1024 {
+            } else if try await rootOwnedProxy(snapshot.proxyPID) || target.port < 1024 {
                 try await command.runAsAdministrator(target.startArguments, directory: state, verifyingPID: snapshot.proxyPID,
                                                      restarting: true, environment: target.startEnvironment)
             } else {

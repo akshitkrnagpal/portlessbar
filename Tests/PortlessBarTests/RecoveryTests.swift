@@ -98,6 +98,8 @@ final class RecoveryTests: XCTestCase {
         }
         try observeProxy(pid: getpid(), in: state)
         try Data("#!/usr/bin/env node\n".utf8).write(to: script)
+        try Data(#"{"name":"portless","bin":{"portless":"./dist/cli.js"}}"#.utf8)
+            .write(to: script.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("package.json"))
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         let unexpected = root.appendingPathComponent("unexpected-command")
         try Data(("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo v24.0.0; elif [ \"$2\" = \"--help\" ]; then echo 'portless proxy start --https'; else touch "
