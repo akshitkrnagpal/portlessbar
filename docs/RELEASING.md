@@ -1,6 +1,6 @@
 # Releasing PortlessBar
 
-The version in `VERSION` is the single source of truth. Release tags use `vMAJOR.MINOR.PATCH`, for example `v0.1.0`. Repository visibility is managed separately from releases. Keep `VERSION` at **0.1.0** while the first version is being finalized; do not increment it until the maintainer confirms that version is final.
+The version in `VERSION` is the single source of truth. Release tags use `vMAJOR.MINOR.PATCH`, for example `v0.2.0`. Repository visibility is managed separately from releases. The finalized first release is 0.1.0; subsequent releases must use a higher version.
 
 ## Prepare
 
@@ -31,6 +31,8 @@ PORTLESSBAR_NOTARY_PROFILE='your-keychain-profile' \
 The script enables hardened runtime, adds a secure signature timestamp, submits to Apple's notary service, waits for the result, staples the ticket, verifies it, and creates the final archive and checksum. It fails if notarization or verification fails. See [Apple's notarization documentation](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
 `PORTLESSBAR_BUILD_DIR` and `PORTLESSBAR_DIST_DIR` can move build artifacts outside the source tree. For build-system signing problems caused by extended attributes, try a fresh checkout outside a synchronized folder. `PORTLESSBAR_BUILD_SYSTEM` can select an alternate build system supported by your Swift toolchain.
+
+Set `PORTLESSBAR_SIGN_KEYCHAIN` to use a dedicated signing keychain without changing the user's keychain search list. Unlock that keychain before building.
 
 ## Draft and publish
 
