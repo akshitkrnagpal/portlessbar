@@ -4,6 +4,7 @@
 - Center the portlessbar wordmark and replace the header switch with Start portless / Stop portless menu actions.
 - Add a compact Portless settings window for network mode, HTTPS, proxy port, domains, wildcard routing, and custom certificate/key files. Validate edits before saving, preserve other reconnect flags, and apply changes through Portless’s lifecycle, including installed startup services.
 - Allow resizing Portless settings and remember its window frame. Expanding Advanced brings its controls into view, with the TLS card aligned to the other sections.
+- Right-align the This device / Network selector with the other proxy settings controls.
 
 - Discover Portless LAN apps on other Macs through Bonjour and show them under On this network. Open each URL with its advertised port and verified HTTP/HTTPS scheme.
 - Keep nearby discovery available when this Mac's proxy is disconnected or in This Mac mode. Filter out this Mac's advertisements and unrelated web services, and update entries as services appear, disappear, or change addresses.

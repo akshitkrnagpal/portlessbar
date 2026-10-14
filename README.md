@@ -35,9 +35,9 @@
 ## Within reach
 
 - **Open apps in one click.** Your current Portless registrations appear as URLs under **On this device**. Pick one to open it in your default browser.
-- **Find apps on nearby Macs.** Portless apps advertised with `--lan` on other Macs appear under **On this network**. Discovery works while your own proxy is disconnected or in This Mac mode, and uses each remote proxy's port and HTTP/HTTPS setting.
+- **Find apps on nearby Macs.** Portless apps advertised with `--lan` on other Macs appear under **On this network**. Discovery works while your own proxy is disconnected or in This device mode, and uses each remote proxy's port and HTTP/HTTPS setting.
 - **Start or stop the proxy.** Use the menu’s Start portless or Stop portless action without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
-- **Choose This Mac or Network.** Reach your apps from other devices on your network, or keep them on this Mac. Choose the mode in Portless settings alongside the proxy port, HTTPS, domains, wildcard routing, and custom TLS certificate files. Saving restarts a running proxy; stopped proxies stay stopped. Restart your apps to register their new URLs.
+- **Choose This device or Network.** Reach your apps from other devices on your network, or keep them on this Mac. Choose the mode in Portless settings alongside the proxy port, HTTPS, domains, wildcard routing, and custom TLS certificate files. Saving restarts a running proxy; stopped proxies stay stopped. Restart your apps to register their new URLs.
 - **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
 - **Feels at home on macOS.** A native menu, a monospace identity, and a small Settings screen.
 

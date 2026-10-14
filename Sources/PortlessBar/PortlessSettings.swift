@@ -149,11 +149,11 @@ struct PortlessSettingsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         section("Connection") {
-                            row("Available on", help: "--lan · This Mac uses loopback; Network uses .local over mDNS.") {
+                            row("Available on", help: "--lan · This device uses loopback; Network uses .local over mDNS.") {
                                 Picker("Available on", selection: $draft.lan) {
-                                    Text("This Mac").tag(false)
+                                    Text("This device").tag(false)
                                     Text("Network").tag(true)
-                                }.labelsHidden().pickerStyle(.segmented).frame(width: 220)
+                                }.labelsHidden().pickerStyle(.segmented).frame(width: 220, alignment: .trailing)
                                     .disabled(store.supportsLAN == false)
                             }
                             Divider()
