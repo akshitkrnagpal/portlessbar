@@ -303,7 +303,7 @@ final class IntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveLANSwitchPreservesMainToggleAndRemembersDisconnectedMode() async throws {
+    func testLiveLANSwitchPreservesRequestedStateAndRemembersDisconnectedMode() async throws {
         _ = NSApplication.shared
         let (cli, node) = try liveTools()
         let root = try temporaryDirectory()
@@ -329,7 +329,7 @@ final class IntegrationTests: XCTestCase {
                 DispatchQueue.main.async { continuation.resume() }
             }
         }
-        var toggleStates: [NSControl.StateValue] = []
+        var toggleStates: [Bool] = []
         var lanSelections: [Int] = []
         let observation = store.objectWillChange.sink {
             // Combine does not promise subscriber order. A second queue turn
@@ -337,8 +337,8 @@ final class IntegrationTests: XCTestCase {
             DispatchQueue.main.async {
                 DispatchQueue.main.async {
                     if store.switchingLAN {
-                        toggleStates.append(controller.header.toggle.state)
-                        lanSelections.append(controller.lan.selector.selectedSegment)
+                        toggleStates.append(store.proxyToggleOn)
+                        lanSelections.append(store.lanSelectionOn ? 1 : 0)
                     }
                 }
             }
@@ -357,7 +357,7 @@ final class IntegrationTests: XCTestCase {
         XCTAssertNil(store.error)
         XCTAssertTrue(store.proxyRunning)
         XCTAssertFalse(toggleStates.isEmpty)
-        XCTAssertTrue(toggleStates.allSatisfy { $0 == .on }, "Changing the mode must keep an enabled main toggle on throughout the restart.")
+        XCTAssertTrue(toggleStates.allSatisfy { $0 == true }, "Changing the mode must keep an enabled main toggle on throughout the restart.")
         XCTAssertTrue(lanSelections.allSatisfy { $0 == 1 }, "The selector must keep the requested Network position throughout the restart.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: marker))
         await flushMenuUpdates()
@@ -367,7 +367,7 @@ final class IntegrationTests: XCTestCase {
         XCTAssertNil(store.error)
         XCTAssertFalse(store.lanMode)
         XCTAssertTrue(store.proxyRunning)
-        XCTAssertTrue(toggleStates.allSatisfy { $0 == .on }, "Returning to local mode must also keep the main toggle on.")
+        XCTAssertTrue(toggleStates.allSatisfy { $0 == true }, "Returning to local mode must also keep the main toggle on.")
         XCTAssertTrue(lanSelections.allSatisfy { $0 == 0 }, "The selector must keep the requested This Mac position throughout the restart.")
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker))
         await store.setProxyRunning(false)
@@ -376,9 +376,9 @@ final class IntegrationTests: XCTestCase {
         await store.setLANMode(true)
         XCTAssertNil(store.error)
         XCTAssertFalse(store.proxyRunning, "Changing the mode must not connect a disconnected proxy.")
-        XCTAssertTrue(toggleStates.allSatisfy { $0 == .off })
+        XCTAssertTrue(toggleStates.allSatisfy { $0 == false })
         await flushMenuUpdates()
-        XCTAssertEqual(controller.header.toggle.state, .off)
+        XCTAssertEqual(controller.proxyItem.title, "Start portless")
         await store.setProxyRunning(true)
         XCTAssertNil(store.error)
         XCTAssertTrue(store.lanMode)
@@ -386,13 +386,54 @@ final class IntegrationTests: XCTestCase {
         await store.setProxyRunning(false)
         await store.setLANMode(false)
         await flushMenuUpdates()
-        XCTAssertEqual(controller.header.toggle.state, .off)
+        XCTAssertEqual(controller.proxyItem.title, "Start portless")
         await store.setProxyRunning(true)
         XCTAssertNil(store.error)
         XCTAssertFalse(store.lanMode)
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker))
         await store.setProxyRunning(false)
         XCTAssertFalse(store.proxyRunning)
+    }
+
+    @MainActor
+    func testLiveSettingsRestartWithEditedPortDomainsAndWildcard() async throws {
+        let (cli, node) = try liveTools()
+        let root = try temporaryDirectory()
+        let state = root.appendingPathComponent("state")
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        defer {
+            if let raw = try? String(contentsOfFile: state.path + "/proxy.pid", encoding: .utf8),
+               let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 { kill(pid, SIGTERM) }
+        }
+        var command = ProxyCommand(executable: [node, cli])
+        command.environment["PORTLESS_SYNC_HOSTS"] = "0"
+        let store = ServerStore(stateDirectory: state.path, storageDirectory: root.appendingPathComponent("app"), command: command,
+                                monitor: false, servicePlist: root.appendingPathComponent("missing.plist"))
+        let first = try PortlessSettingsDraft(ProxyConfiguration(port: unusedPort(), tls: false,
+                                                               extras: ["--tld", "test", "--wildcard"])).configuration()
+        let saved = await store.applyConfiguration(first)
+        XCTAssertTrue(saved, store.error ?? "")
+        await store.setProxyRunning(true)
+        XCTAssertNil(store.error)
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertEqual(store.editableConfiguration.port, first.port)
+        XCTAssertTrue(store.editableConfiguration.extras.contains("--wildcard"))
+        let second = try PortlessSettingsDraft(ProxyConfiguration(port: unusedPort(), tls: false,
+                                                                extras: ["--tld", "dev", "--tld", "test"])).configuration()
+        let restarted = await store.applyConfiguration(second)
+        XCTAssertTrue(restarted, store.error ?? "")
+        XCTAssertTrue(store.proxyRunning)
+        XCTAssertEqual(store.editableConfiguration.port, second.port)
+        XCTAssertFalse(store.editableConfiguration.tls)
+        XCTAssertFalse(store.editableConfiguration.extras.contains("--wildcard"))
+        XCTAssertTrue(store.editableConfiguration.extras.contains("dev"))
+        await store.setProxyRunning(false)
+        XCTAssertNil(store.error)
+        await store.setProxyRunning(true)
+        XCTAssertNil(store.error)
+        XCTAssertEqual(store.editableConfiguration.port, second.port)
+        XCTAssertTrue(store.editableConfiguration.extras.contains("test"))
+        await store.setProxyRunning(false)
     }
 
     @MainActor

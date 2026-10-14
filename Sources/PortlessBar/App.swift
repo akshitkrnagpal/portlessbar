@@ -35,7 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mainMenu = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "PortlessBar")
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        let proxySettingsItem = NSMenuItem(title: "Portless settings…", action: #selector(showPortlessSettings), keyEquivalent: "")
+        proxySettingsItem.target = self
+        appMenu.addItem(proxySettingsItem)
+        let settingsItem = NSMenuItem(title: "PortlessBar settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self
         appMenu.addItem(settingsItem)
         appMenu.addItem(.separator())
@@ -57,6 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let event = NSAppleEventManager.shared().currentAppleEvent
         let launchedAtLogin = event?.eventID == kAEOpenApplication &&
             event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        #if DEBUG
+        // The unsigned UI preview opens a window so native inspection can attach
+        // to this accessory app. This key is absent from normal app bundles.
+        if Bundle.main.object(forInfoDictionaryKey: "PortlessBarPreview") as? Bool == true {
+            let previewItem = NSMenuItem(title: "Preview menu", action: #selector(previewMenu), keyEquivalent: "m")
+            previewItem.target = self
+            appMenu.insertItem(previewItem, at: 0)
+            portlessSettings.show()
+            return
+        }
+        #endif
         if !launchedAtLogin && !ProcessInfo.processInfo.arguments.contains("--background") {
             DispatchQueue.main.async { [weak self] in self?.statusItem.button?.performClick(nil) }
         }
@@ -67,5 +81,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationWillTerminate(_ notification: Notification) { store.nearby.stop() }
+
     @objc private func showSettings() { settings.show() }
+    @objc private func showPortlessSettings() { portlessSettings.show() }
+
+    #if DEBUG
+    @objc private func previewMenu() {
+        guard let view = portlessSettings.window?.contentView else { return }
+        statusMenu.menu.popUp(positioning: nil, at: NSPoint(x: 24, y: view.bounds.maxY - 60), in: view)
+    }
+    #endif
 }

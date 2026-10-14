@@ -18,8 +18,13 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
     // has no --no-lan flag. Only an explicit PORTLESS_LAN=0 starts without it,
     // and an inherited LAN address would turn it back on.
     var startEnvironment: [String: String] {
-        (lan ? [:] : ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": ""])
-            .merging(environmentOverrides ?? [:]) { $1 }
+        var environment = lan ? [:] : ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": ""]
+        if environmentOverrides != nil {
+            // An edited setting takes precedence over inherited shell defaults.
+            environment["PORTLESS_LAN"] = lan ? "1" : "0"
+            environment["PORTLESS_LAN_IP"] = ""
+        }
+        return environment.merging(environmentOverrides ?? [:]) { $1 }
     }
 
     func settingLAN(_ enabled: Bool) -> ProxyConfiguration {
@@ -274,6 +279,34 @@ struct ProxyCommand: Sendable {
         } catch { return (error.localizedDescription, nil) }
     }
 
+    func validateSettings(_ configuration: ProxyConfiguration, directory: String) async throws {
+        guard !configuration.lan else { return }
+        let extras = configuration.extras
+        let tlds = extras.indices.compactMap { index -> String? in
+            guard extras[index] == "--tld", extras.indices.contains(index + 1) else { return nil }
+            return extras[index + 1]
+        }
+        guard tlds.count > 1 || tlds.contains(where: { $0.contains(".") || $0.contains("-") }) else { return }
+        let prepared = try await prepare()
+        guard Integration.isPortless([prepared.executable] + prepared.arguments) else { return }
+        var inspector = self
+        inspector.timeout = min(timeout, 5)
+        let result = try await inspector.run(["--version"], directory: directory)
+        guard result.status == 0 else { throw PortlessError.message("Could not check Portless’s version before changing domains.") }
+        try Self.validateDomains(tlds, version: result.output.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    static func validateDomains(_ tlds: [String], version: String) throws {
+        let numbers = version.replacingOccurrences(of: "v", with: "").split(separator: ".").compactMap { Int($0) }
+        guard numbers.count == 3 else { throw PortlessError.message("Could not determine Portless’s version before changing domains.") }
+        if tlds.count > 1 && numbers.lexicographicallyPrecedes([0, 15, 1]) {
+            throw PortlessError.message("Multiple domains need Portless 0.15.1 or newer. Update Portless or use one domain.")
+        }
+        if tlds.contains(where: { $0.contains(".") || $0.contains("-") }) && numbers.lexicographicallyPrecedes([0, 15, 5]) {
+            throw PortlessError.message("Dotted or hyphenated domains need Portless 0.15.5 or newer. Update Portless or use a simple domain such as localhost or test.")
+        }
+    }
+
     func run(_ arguments: [String], directory: String, environment extra: [String: String] = [:]) async throws -> CommandResult {
         try Task.checkCancellation()
         let prepared = try await prepare()
@@ -366,6 +399,7 @@ enum Authorization {
 
 @MainActor
 final class ServerStore: ObservableObject {
+    let nearby: NearbyDiscovery
     @Published var routes: [Route] = []
     @Published var proxyRunning = false
     @Published var transitioning = false
@@ -397,7 +431,8 @@ final class ServerStore: ObservableObject {
     var pollingInterval: Duration { menuOpen ? .seconds(2) : .seconds(15) }
 
     init(stateDirectory: String? = nil, storageDirectory: URL? = nil, command: ProxyCommand = ProxyCommand(), monitor: Bool = true,
-         servicePlist: URL = URL(fileURLWithPath: "/Library/LaunchDaemons/sh.portless.proxy.plist")) {
+         servicePlist: URL = URL(fileURLWithPath: "/Library/LaunchDaemons/sh.portless.proxy.plist"), nearby: NearbyDiscovery? = nil) {
+        self.nearby = nearby ?? NearbyDiscovery(enabled: monitor)
         self.stateDirectory = stateDirectory ?? ProcessInfo.processInfo.environment["PORTLESS_STATE_DIR"]
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".portless").path
         self.command = command
@@ -609,6 +644,7 @@ final class ServerStore: ObservableObject {
             }
             if let installationIssue { throw PortlessError.message(installationIssue) }
             if target.lan && supportsLAN == false { throw PortlessError.message(Self.unsupportedLANMessage) }
+            try await command.validateSettings(target, directory: stateDirectory)
             if snapshot.proxyRunning {
                 proxyToggleDuringLANChange = true
                 let service = try await restartProxy(target, snapshot: snapshot)
