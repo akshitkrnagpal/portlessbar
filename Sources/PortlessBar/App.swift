@@ -77,6 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        #if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "PortlessBarPreview") as? Bool == true {
+            portlessSettings.show()
+            return false
+        }
+        #endif
         statusItem.button?.performClick(nil)
         return false
     }

@@ -1,7 +1,7 @@
 # Unreleased
 
 - Group registered apps under native On this device and On this network menu section headers. Hide empty groups and show No servers registered only when both groups are empty.
-- Center the portlessbar wordmark and replace the header switch with Start portless / Stop portless menu actions.
+- Left-align the portlessbar wordmark alongside a native proxy switch, with Portless settings directly below it. Keep the header compact without a divider or separate start/stop menu actions.
 - Add a compact Portless settings window for network mode, HTTPS, proxy port, domains, wildcard routing, and custom certificate/key files. Validate edits before saving, preserve other reconnect flags, and apply changes through Portless’s lifecycle, including installed startup services.
 - Allow resizing Portless settings and remember its window frame. Expanding Advanced brings its controls into view, with the TLS card aligned to the other sections.
 - Right-align the This device / Network selector with the other proxy settings controls.

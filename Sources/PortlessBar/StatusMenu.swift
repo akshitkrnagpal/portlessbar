@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import QuartzCore
 
 enum PortlessWordmark {
     static let text = "portlessbar"
@@ -11,20 +12,39 @@ enum PortlessWordmark {
 @MainActor
 final class ProxyHeader: NSView {
     let title = NSTextField(labelWithString: PortlessWordmark.text)
+    let toggle = NSSwitch()
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 44))
         autoresizingMask = [.width]
         title.font = PortlessWordmark.font(size: NSFont.menuFont(ofSize: 0).pointSize + 3)
-        title.alignment = .center
-        title.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(title)
+        title.alignment = .left
+        toggle.setAccessibilityLabel("Portless proxy")
+        for view in [title, toggle] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
         NSLayoutConstraint.activate([
-            title.centerXAnchor.constraint(equalTo: centerXAnchor),
             title.centerYAnchor.constraint(equalTo: centerYAnchor),
-            title.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 16),
-            title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16)
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -12),
+            toggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            toggle.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+    }
+    func setConnected(_ connected: Bool) {
+        let state: NSControl.StateValue = connected ? .on : .off
+        // Preserve a clicked switch's native animation while its command runs.
+        guard toggle.state != state else { return }
+        guard window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            toggle.state = state
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            toggle.animator().state = state
+        }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
@@ -34,7 +54,6 @@ final class ProxyHeader: NSView {
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     let header = ProxyHeader()
-    let proxyItem = NSMenuItem(title: "Start portless", action: nil, keyEquivalent: "")
     private let store: ServerStore
     private let openSettings: () -> Void
     private let openPortlessSettings: () -> Void
@@ -54,8 +73,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.showsStateColumn = false
         menu.delegate = self
-        proxyItem.target = self
-        proxyItem.action = #selector(toggleProxy)
+        header.toggle.target = self
+        header.toggle.action = #selector(toggleProxy(_:))
         rebuild()
         subscription = Publishers.Merge(store.objectWillChange, store.nearby.objectWillChange).sink { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.updateState() }
@@ -85,7 +104,6 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let logo = NSMenuItem()
         logo.view = header
         menu.addItem(logo)
-        menu.addItem(proxyItem)
         menu.addItem(item("Portless settings…", action: #selector(showPortlessSettings)))
         menu.addItem(.separator())
         menu.addItem(routesEnd)
@@ -138,18 +156,17 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     private func updateState() {
-        proxyItem.title = store.transitioning
-            ? (store.proxyToggleOn ? "Starting portless…" : "Stopping portless…")
-            : (store.proxyRunning ? "Stop portless" : "Start portless")
-        proxyItem.isEnabled = !store.transitioning && store.installationIssue == nil
+        header.setConnected(store.proxyToggleOn)
+        header.toggle.isEnabled = !store.transitioning && store.installationIssue == nil
+        header.toggle.toolTip = store.installationIssue ?? (store.transitioning ? "Changing the Portless connection…" : "Start or stop the Portless proxy")
         errorItem?.title = store.installationIssue != nil ? "Portless setup…" : store.supportsLAN == false ? "Network mode setup…" : "Portless Error…"
         errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false && store.nearby.error == nil
         updateRoutes()
         menu.update()
     }
 
-    @objc private func toggleProxy() {
-        let enabled = !store.proxyRunning
+    @objc private func toggleProxy(_ sender: NSSwitch) {
+        let enabled = sender.state == .on
         Task { await store.setProxyRunning(enabled) }
     }
     @objc private func showPortlessSettings() { openPortlessSettings() }
