@@ -6,6 +6,7 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
     var port: Int
     var tls: Bool
     var extras: [String] = []
+    var environmentOverrides: [String: String]? = nil
 
     var startArguments: [String] {
         ["proxy", "start", "-p", String(port), tls ? "--https" : "--no-tls"] + extras
@@ -16,7 +17,10 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
     // Portless keeps LAN mode across restarts through its proxy.lan marker, and
     // has no --no-lan flag. Only an explicit PORTLESS_LAN=0 starts without it,
     // and an inherited LAN address would turn it back on.
-    var startEnvironment: [String: String] { lan ? [:] : ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": ""] }
+    var startEnvironment: [String: String] {
+        (lan ? [:] : ["PORTLESS_LAN": "0", "PORTLESS_LAN_IP": ""])
+            .merging(environmentOverrides ?? [:]) { $1 }
+    }
 
     func settingLAN(_ enabled: Bool) -> ProxyConfiguration {
         var result = self
@@ -38,7 +42,7 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
 
     /// The command that reinstalls Portless's startup service in the given mode, or nil
     /// when no service is installed for this state directory.
-    static func serviceInstall(plist: URL, directory: String, lan: Bool) -> (executable: [String]?, arguments: [String], environment: [String: String])? {
+    static func serviceInstall(plist: URL, directory: String, lan: Bool, target: ProxyConfiguration? = nil) -> (executable: [String]?, arguments: [String], environment: [String: String])? {
         guard let data = try? Data(contentsOf: plist),
               let service = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               let variables = service["EnvironmentVariables"] as? [String: Any], variables["PORTLESS_STATE_DIR"] as? String == directory,
@@ -49,7 +53,7 @@ struct ProxyConfiguration: Codable, Equatable, Sendable {
               flags.indices.contains(flag + 1), let port = Int(flags[flag + 1]) else { return nil }
         // The installer adds --skip-trust (and --foreground) itself and rejects them as options.
         let extras = reconnectExtras(flags).filter { $0 != "--skip-trust" }
-        let configuration = ProxyConfiguration(port: port, tls: !flags.contains("--no-tls"), extras: extras).settingLAN(lan)
+        let configuration = target ?? ProxyConfiguration(port: port, tls: !flags.contains("--no-tls"), extras: extras).settingLAN(lan)
         var environment = configuration.startEnvironment
         // The installer copies this from its own environment rather than from the installed service.
         if let hosts = variables["PORTLESS_SYNC_HOSTS"] as? String { environment["PORTLESS_SYNC_HOSTS"] = hosts }
@@ -381,7 +385,8 @@ final class ServerStore: ObservableObject {
     private let command: ProxyCommand
     private let servicePlist: URL
     private let configURL: URL
-    private var configuration: ProxyConfiguration?
+    @Published private(set) var configuration: ProxyConfiguration?
+    var editableConfiguration: ProxyConfiguration { configuration ?? ProxyConfiguration(port: 443, tls: true) }
     private var monitor: Task<Void, Never>?
     private var refreshTask: Task<Snapshot, Error>?
     private var installationTask: Task<(issue: String?, supportsLAN: Bool?), Never>?
@@ -453,7 +458,10 @@ final class ServerStore: ObservableObject {
             if Task.isCancelled { return nil }
             routes = snapshot.routes
             proxyRunning = snapshot.proxyRunning
-            if snapshot.proxyRunning, let config = snapshot.configuration, config != configuration { try remember(config) }
+            if snapshot.proxyRunning, var config = snapshot.configuration {
+                config.environmentOverrides = configuration?.environmentOverrides
+                if config != configuration { try remember(config) }
+            }
             lanMode = (snapshot.proxyRunning ? snapshot.configuration : configuration)?.lan ?? false
             if error == readError { error = nil }
             readError = nil
@@ -536,7 +544,7 @@ final class ServerStore: ObservableObject {
             if snapshot.proxyRunning == enabled { return }
             let state = stateDirectory
             // State files left by a killed proxy must not override the mode chosen while disconnected.
-            let config = (snapshot.configuration ?? configuration)?.settingLAN(lanMode)
+            let config = (configuration ?? snapshot.configuration)?.settingLAN(lanMode)
             if enabled && config?.lan == true && supportsLAN == false { throw PortlessError.message(Self.unsupportedLANMessage) }
             let rootOwned = enabled ? false : try await rootOwnedProxy(snapshot.proxyPID)
             let arguments = enabled ? (config?.startArguments ?? ["proxy", "start"]) : ["proxy", "stop"]
@@ -578,32 +586,63 @@ final class ServerStore: ObservableObject {
                 lanMode = enabled
                 return
             }
-            let state = stateDirectory
             let target = running.settingLAN(enabled)
-            let install = ProxyConfiguration.serviceInstall(plist: servicePlist, directory: state, lan: enabled)
-            if let install {
-                // launchd restarts the proxy with the flags in its plist, so only
-                // Portless's installer can change the mode of a startup service.
-                var installer = command
-                if let executable = install.executable { installer.executable = executable }
-                try await installer.runAsAdministrator(install.arguments, directory: state, environment: install.environment)
-            } else if try await rootOwnedProxy(snapshot.proxyPID) || target.port < 1024 {
-                try await command.runAsAdministrator(target.startArguments, directory: state, verifyingPID: snapshot.proxyPID,
-                                                     restarting: true, environment: target.startEnvironment)
-            } else {
-                // A running proxy cannot change mode.
-                let pid = snapshot.proxyPID
-                try await run(["proxy", "stop"])
-                // Portless only signals the proxy; the port is free once the process is gone.
-                guard try await settled(within: 10, { !proxyRunning && pid.map { kill($0, 0) != 0 } ?? true }) else {
-                    throw PortlessError.message("The proxy did not stop. Check Portless in Terminal and try again.")
-                }
-                try await run(target.startArguments, environment: target.startEnvironment)
-            }
-            if try await settled(within: install == nil ? 10 : 20, { proxyRunning && lanMode == enabled }) { return }
+            let service = try await restartProxy(target, snapshot: snapshot, replaceServiceSettings: false)
+            if try await settled(within: service ? 20 : 10, { proxyRunning && lanMode == enabled }) { return }
             throw PortlessError.message(enabled ? "LAN mode did not turn on. The installed Portless may be too old for LAN mode."
                                         : "LAN mode did not turn off. Check Portless in Terminal and try again.")
         } catch { self.error = error.localizedDescription; readError = nil }
         await refresh()
     }
+
+    /// Save while stopped; apply through Portless's lifecycle when running.
+    @discardableResult
+    func applyConfiguration(_ target: ProxyConfiguration) async -> Bool {
+        guard !transitioning else { return false }
+        transitioning = true
+        error = nil
+        readError = nil
+        defer { transitioning = false; proxyToggleDuringLANChange = nil }
+        do {
+            guard let snapshot = await refresh() else {
+                throw PortlessError.message(error ?? "Could not read Portless state.")
+            }
+            if let installationIssue { throw PortlessError.message(installationIssue) }
+            if target.lan && supportsLAN == false { throw PortlessError.message(Self.unsupportedLANMessage) }
+            if snapshot.proxyRunning {
+                proxyToggleDuringLANChange = true
+                let service = try await restartProxy(target, snapshot: snapshot)
+                guard try await settled(within: service ? 20 : 10, {
+                    proxyRunning && configuration?.port == target.port && configuration?.tls == target.tls && lanMode == target.lan
+                }) else { throw PortlessError.message("Portless did not restart with the new settings. Check it in Terminal and try again.") }
+            }
+            try remember(target)
+            lanMode = target.lan
+            return true
+        } catch { self.error = error.localizedDescription; readError = nil }
+        await refresh()
+        return false
+    }
+
+    private func restartProxy(_ target: ProxyConfiguration, snapshot: Snapshot, replaceServiceSettings: Bool = true) async throws -> Bool {
+        let install = ProxyConfiguration.serviceInstall(plist: servicePlist, directory: stateDirectory, lan: target.lan,
+                                                        target: replaceServiceSettings ? target : nil)
+        if let install {
+            var installer = command
+            if let executable = install.executable { installer.executable = executable }
+            try await installer.runAsAdministrator(install.arguments, directory: stateDirectory, environment: install.environment)
+        } else if try await rootOwnedProxy(snapshot.proxyPID) || target.port < 1024 {
+            try await command.runAsAdministrator(target.startArguments, directory: stateDirectory, verifyingPID: snapshot.proxyPID,
+                                                 restarting: true, environment: target.startEnvironment)
+        } else {
+            let pid = snapshot.proxyPID
+            try await run(["proxy", "stop"])
+            guard try await settled(within: 10, { !proxyRunning && pid.map { kill($0, 0) != 0 } ?? true }) else {
+                throw PortlessError.message("The proxy did not stop. Check Portless in Terminal and try again.")
+            }
+            try await run(target.startArguments, environment: target.startEnvironment)
+        }
+        return install != nil
+    }
+
 }

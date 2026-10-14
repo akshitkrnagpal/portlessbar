@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = ServerStore()
     private let updates = UpdateStore()
     private lazy var settings = SettingsWindowController(updates: updates)
+    private lazy var portlessSettings = PortlessSettingsWindowController(store: store)
     private var statusItem: NSStatusItem!
     private var statusMenu: StatusMenuController!
 
@@ -44,7 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusMenu = StatusMenuController(store: store, openSettings: { [weak self] in self?.settings.show() })
+        statusMenu = StatusMenuController(store: store, openSettings: { [weak self] in self?.settings.show() },
+                                          openPortlessSettings: { [weak self] in self?.portlessSettings.show() })
         statusItem.menu = statusMenu.menu
         if let button = statusItem.button {
             button.title = "p_"
