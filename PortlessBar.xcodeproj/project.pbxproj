@@ -20,10 +20,12 @@
 		6886457A48F47774F3CFF9DD /* Updates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E264FAF3FA9BC69903C46D6E /* Updates.swift */; };
 		75ADF859D8C8F3AF411D35EE /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020BA23F94147481950C19FA /* Models.swift */; };
 		78290F928670A0609D8B1F48 /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD65B58430F51E10CB272A4 /* LoginItem.swift */; };
+		79D714EE043D789BC7DA7FEA /* PortlessSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86D1EE985850E4132723714 /* PortlessSettings.swift */; };
 		83ABE776700156874DC12B96 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9868E04D436C449EF94346 /* Settings.swift */; };
 		8D6EE81EAFA4C33518ABBB0E /* StatusMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */; };
 		93BE8ED1A2B4524BA19F9DA7 /* CommandExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E053423F49E01FC8604D83 /* CommandExecution.swift */; };
 		96729E813635D1B5293C59B1 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC9EB0BC76401161915C63E /* App.swift */; };
+		9FA5C5A7109896C7974872AE /* PortlessSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE0A62959E3ED1E3D19EF6F /* PortlessSettingsTests.swift */; };
 		A5AEC612705828257B06D181 /* LoginItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5E6C86AC0D7C8A50FA8D2D /* LoginItemTests.swift */; };
 		AC427CDA7537952E1A0E8770 /* Sparkle-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */; };
 		AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED57934E965C56EEC11DA87F /* ServerStore.swift */; };
@@ -81,6 +83,7 @@
 		46A83A2B4B694DA79720A2AB /* PortlessBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PortlessBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuTests.swift; sourceTree = "<group>"; };
 		57D39556F5D4E7DAB7987D01 /* RecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryTests.swift; sourceTree = "<group>"; };
+		5FE0A62959E3ED1E3D19EF6F /* PortlessSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortlessSettingsTests.swift; sourceTree = "<group>"; };
 		6E6CFD735FD2572A38284051 /* PortlessSystem.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PortlessSystem.c; sourceTree = "<group>"; };
 		7B83327E7215979E449816F6 /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		881F280262629AD1126747C5 /* libPortlessSystem.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPortlessSystem.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -90,6 +93,7 @@
 		AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */ = {isa = PBXFileReference; path = "Sparkle-LICENSE"; sourceTree = "<group>"; };
 		AAD65B58430F51E10CB272A4 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
 		B1DC4DF783D9AF32E3E42DA5 /* PortlessBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PortlessBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B86D1EE985850E4132723714 /* PortlessSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortlessSettings.swift; sourceTree = "<group>"; };
 		C8437B9D99C7171AE3867A53 /* StatusMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenu.swift; sourceTree = "<group>"; };
 		C93170E080B51870DD473C2C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D5E053423F49E01FC8604D83 /* CommandExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandExecution.swift; sourceTree = "<group>"; };
@@ -138,6 +142,7 @@
 				E85E31470E96FEB6E67A8330 /* IntegrationTests.swift */,
 				0A5E6C86AC0D7C8A50FA8D2D /* LoginItemTests.swift */,
 				9421EF1C800877248166BA5D /* NearbyDiscoveryTests.swift */,
+				5FE0A62959E3ED1E3D19EF6F /* PortlessSettingsTests.swift */,
 				57D39556F5D4E7DAB7987D01 /* RecoveryTests.swift */,
 				5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */,
 			);
@@ -172,6 +177,7 @@
 				AAD65B58430F51E10CB272A4 /* LoginItem.swift */,
 				020BA23F94147481950C19FA /* Models.swift */,
 				E1EC8EEE4D0B764BB8D914FB /* NearbyDiscovery.swift */,
+				B86D1EE985850E4132723714 /* PortlessSettings.swift */,
 				ED57934E965C56EEC11DA87F /* ServerStore.swift */,
 				9A9868E04D436C449EF94346 /* Settings.swift */,
 				C8437B9D99C7171AE3867A53 /* StatusMenu.swift */,
@@ -370,6 +376,7 @@
 				78290F928670A0609D8B1F48 /* LoginItem.swift in Sources */,
 				75ADF859D8C8F3AF411D35EE /* Models.swift in Sources */,
 				22C395CDA03793620B9082D4 /* NearbyDiscovery.swift in Sources */,
+				79D714EE043D789BC7DA7FEA /* PortlessSettings.swift in Sources */,
 				AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */,
 				83ABE776700156874DC12B96 /* Settings.swift in Sources */,
 				185C0BA9BC34035DE11FB243 /* StatusMenu.swift in Sources */,
@@ -392,6 +399,7 @@
 				4B083E461F38EEA8A394FDBB /* IntegrationTests.swift in Sources */,
 				A5AEC612705828257B06D181 /* LoginItemTests.swift in Sources */,
 				3003D9D938E3D5ABB4851F04 /* NearbyDiscoveryTests.swift in Sources */,
+				9FA5C5A7109896C7974872AE /* PortlessSettingsTests.swift in Sources */,
 				3941514491B4FE45BCB822F4 /* RecoveryTests.swift in Sources */,
 				8D6EE81EAFA4C33518ABBB0E /* StatusMenuTests.swift in Sources */,
 			);
@@ -454,7 +462,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.3.2;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
@@ -478,7 +486,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/Sources/PortlessSystem/include";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.2;
+				MARKETING_VERSION = 0.4.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -644,7 +652,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.3.2;
+				CURRENT_PROJECT_VERSION = 0.4.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7D6HNDPR5T;
 				ENABLE_APP_SANDBOX = NO;
@@ -662,7 +670,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/Sources/PortlessSystem/include";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.3.2;
+				MARKETING_VERSION = 0.4.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -158,14 +158,19 @@ final class NearbyDiscoveryTests: XCTestCase {
         XCTAssertEqual((row.representedObject as? NearbyRoute)?.url.absoluteString, "https://web.local:1355")
         XCTAssertTrue(row.isEnabled)
         XCTAssertNotNil(row.action)
-        XCTAssertTrue(controller.menu.items.contains { $0.title == "Nearby apps" })
+        XCTAssertTrue(controller.menu.items.contains { $0.title == "On this network" })
         XCTAssertLessThan(controller.menu.items.firstIndex { $0.title == "local.localhost" }!, controller.menu.index(of: row))
+        XCTAssertEqual(controller.menu.items.filter(\.isSectionHeader).map(\.title), ["On this device", "On this network"])
         store.routes = []
-        try await waitUntil { controller.menu.items.contains { $0.title == "No local servers registered" } }
+        try await waitUntil { !controller.menu.items.contains { $0.title == "On this device" } }
+        XCTAssertEqual(controller.menu.items.filter(\.isSectionHeader).map(\.title), ["On this network"])
+        XCTAssertFalse(controller.menu.items.contains { $0.title == "No servers registered" })
         XCTAssertTrue(controller.menu.items.contains { $0 === row })
         discovery.remove("remote")
         try await waitUntil { !controller.menu.items.contains { $0.representedObject is NearbyRoute } }
-        XCTAssertFalse(controller.menu.items.contains { $0.title == "Nearby apps" })
+        XCTAssertFalse(controller.menu.items.contains { $0.title == "On this network" })
+        XCTAssertTrue(controller.menu.items.filter(\.isSectionHeader).isEmpty)
+        XCTAssertEqual(controller.menu.items.filter { $0.title == "No servers registered" }.count, 1)
     }
 
     @MainActor

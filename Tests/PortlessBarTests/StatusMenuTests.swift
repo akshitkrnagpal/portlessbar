@@ -4,95 +4,62 @@ import XCTest
 
 final class StatusMenuTests: XCTestCase {
     @MainActor
-    func testNetworkSelectionVisiblyFadesAndSettles() async throws {
+    private func store(command: ProxyCommand = ProxyCommand()) -> ServerStore {
         _ = NSApplication.shared
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { throw XCTSkip("Reduce Motion is enabled") }
-        let row = LANModeSelector()
-        let window = NSWindow(contentRect: NSRect(x: -10000, y: -10000, width: 270, height: 50),
-                              styleMask: .borderless, backing: .buffered, defer: false)
-        window.contentView = row
-        window.orderFront(nil)
-        defer { window.orderOut(nil) }
-        row.setNetwork(false)
-        // Native controls select the clicked segment before delivering their action.
-        row.selector.selectedSegment = 1
-        row.setNetwork(true)
-        XCTAssertEqual(row.selector.selectedSegment, 1)
-        let previousRendering = try XCTUnwrap(row.subviews.compactMap { $0 as? NSImageView }.first)
-        try await Task.sleep(for: .milliseconds(80))
-        let opacity = try XCTUnwrap(previousRendering.layer?.presentation()?.opacity)
-        XCTAssertGreaterThan(opacity, 0, "The previous selection should still be partially visible mid-transition.")
-        XCTAssertLessThan(opacity, 1, "The selection should fade instead of jumping between positions.")
-        row.setNetwork(true) // A polling update must leave the animation in progress.
-        XCTAssertTrue(previousRendering.superview === row)
-        try await Task.sleep(for: .milliseconds(250))
-        XCTAssertNil(previousRendering.superview)
-        XCTAssertEqual(row.selector.selectedSegment, 1)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return ServerStore(stateDirectory: root.path, storageDirectory: root, command: command, monitor: false)
     }
 
     @MainActor
-    func testProxyClickKeepsRequestedPositionUntilTheCommandFinishes() async throws {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let command = ProxyCommand(executable: ["/bin/sh", "-c", "sleep 0.3; echo 'fixture failed'; exit 1"])
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, command: command, monitor: false)
+    func testProxySwitchReflectsRequestedStateAndFailure() async throws {
+        let store = store(command: ProxyCommand(executable: ["/bin/sh", "-c", "sleep 0.3; echo 'fixture failed'; exit 1"]))
         let controller = StatusMenuController(store: store)
+        XCTAssertEqual(controller.header.toggle.state, .off)
         controller.header.toggle.state = .on
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(controller.header.toggle.action), to: controller.header.toggle.target, from: controller.header.toggle))
         let deadline = Date().addingTimeInterval(2)
         while !store.transitioning && Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
         await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
         XCTAssertTrue(store.transitioning)
-        XCTAssertFalse(store.proxyRunning)
-        XCTAssertEqual(controller.header.toggle.state, .on, "Polling must not undo the clicked position while connecting.")
+        XCTAssertEqual(controller.header.toggle.state, .on)
+        XCTAssertFalse(controller.header.toggle.isEnabled)
         while store.transitioning && Date() < deadline { try await Task.sleep(for: .milliseconds(5)) }
         await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
-        XCTAssertFalse(store.transitioning)
-        XCTAssertEqual(controller.header.toggle.state, .off, "A failed command must restore the observed state.")
+        XCTAssertEqual(controller.header.toggle.state, .off)
         XCTAssertEqual(store.error, "fixture failed")
+        store.proxyRunning = true
+        await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+        XCTAssertEqual(controller.header.toggle.state, .on)
     }
 
     @MainActor
-    func testMissingInstallationDisablesControlsAndOffersSetup() {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+    func testMissingInstallationDisablesLifecycleAndOffersSettings() {
+        let store = store()
         store.installationIssue = "Install the Portless CLI"
         let controller = StatusMenuController(store: store)
-        XCTAssertEqual(controller.header.status.stringValue, "Portless unavailable")
         XCTAssertFalse(controller.header.toggle.isEnabled)
-        XCTAssertFalse(controller.lan.selector.isEnabled)
-        XCTAssertEqual(controller.lan.status.stringValue, "Set up Portless first")
         XCTAssertFalse(controller.menu.items.first { $0.title == "Portless setup…" }!.isHidden)
-        XCTAssertTrue(controller.menu.items.first { $0.title == "Settings…" }!.isEnabled)
+        XCTAssertTrue(controller.menu.items.first { $0.title == "Portless settings…" }!.isEnabled)
     }
 
     @MainActor
-    func testUnsupportedNetworkModeKeepsProxyControlsAvailable() {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+    func testUnsupportedNetworkModeKeepsLifecycleAvailable() {
+        let store = store()
         store.proxyRunning = true
         store.supportsLAN = false
         let controller = StatusMenuController(store: store)
         XCTAssertTrue(controller.header.toggle.isEnabled)
-        XCTAssertFalse(controller.lan.selector.isEnabled)
-        XCTAssertEqual(controller.lan.status.stringValue, "Update Portless for Network")
+        XCTAssertEqual(controller.header.toggle.state, .on)
         XCTAssertFalse(controller.menu.items.first { $0.title == "Network mode setup…" }!.isHidden)
     }
 
     @MainActor
     func testRouteRowsUpdateWhileMenuIsOpen() async throws {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let store = store()
+        let root = URL(fileURLWithPath: store.stateDirectory)
         let file = root.appendingPathComponent("routes.json")
         try JSONEncoder().encode([Route(hostname: "old.localhost", port: 3000, pid: 0)]).write(to: file)
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root.appendingPathComponent("app"), monitor: false)
         await store.refresh()
         let controller = StatusMenuController(store: store)
         controller.menuWillOpen(controller.menu)
@@ -106,95 +73,32 @@ final class StatusMenuTests: XCTestCase {
     }
 
     @MainActor
-    func testControlRowsAccommodateLargerFontsAndWideMenus() {
-        let header = ProxyHeader()
-        let defaultHeaderHeight = header.frame.height
-        header.title.font = PortlessWordmark.font(size: 28)
-        header.status.font = .menuFont(ofSize: 24)
-        header.resizeToFit()
-        header.layoutSubtreeIfNeeded()
-        XCTAssertGreaterThan(header.frame.height, defaultHeaderHeight)
-        XCTAssertLessThanOrEqual(header.title.frame.maxX, header.toggle.frame.minX)
-        XCTAssertLessThanOrEqual(header.status.frame.maxY, header.bounds.maxY - 8)
-        XCTAssertGreaterThanOrEqual(header.toggle.frame.minY, 8)
-        XCTAssertLessThanOrEqual(header.toggle.frame.maxY, header.bounds.maxY - 8)
-        header.frame.size.width = 600
-        header.layoutSubtreeIfNeeded()
-        XCTAssertEqual(header.toggle.frame.maxX, 588, accuracy: 1)
-
-        let lan = LANModeSelector()
-        let defaultLANHeight = lan.frame.height
-        lan.status.font = .menuFont(ofSize: 24)
-        lan.status.stringValue = "Restart apps to update URLs"
-        lan.resizeToFit()
-        lan.layoutSubtreeIfNeeded()
-        XCTAssertGreaterThan(lan.frame.height, defaultLANHeight)
-        XCTAssertLessThanOrEqual(lan.status.frame.maxX, lan.bounds.maxX)
-        XCTAssertLessThanOrEqual(lan.status.frame.maxY, lan.bounds.maxY - 8)
-        lan.frame.size.width = 600
-        lan.layoutSubtreeIfNeeded()
-        XCTAssertEqual(lan.selector.frame.maxX, 588, accuracy: 1)
-    }
-
-    @MainActor
-    func testMenuHasOneProxyToggleAndOnlyDirectURLActions() throws {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
+    func testMenuHasLeftAlignedWordmarkAndSeparateSettingsActions() throws {
+        let store = store()
         store.routes = [Route(hostname: "web.localhost", port: 4000, pid: 0), Route(hostname: "api.localhost", port: 4001, pid: 0)]
-        store.proxyRunning = true
         var openedSettings = false
-        let controller = StatusMenuController(store: store, openSettings: { openedSettings = true })
-        XCTAssertEqual(controller.header.toggle.state, .on)
-        XCTAssertEqual(controller.header.status.stringValue, "Connected")
+        var openedPortlessSettings = false
+        let controller = StatusMenuController(store: store, openSettings: { openedSettings = true },
+                                              openPortlessSettings: { openedPortlessSettings = true })
+        XCTAssertEqual(controller.menu.items.compactMap(\.view), [controller.header])
+        controller.header.frame.size.width = 400
+        controller.header.layoutSubtreeIfNeeded()
+        XCTAssertEqual(controller.header.title.frame.minX, 14, accuracy: 1)
         let rows = controller.menu.items.filter { $0.representedObject is String }
         XCTAssertEqual(rows.map(\.title), ["api.localhost", "web.localhost"])
+        XCTAssertEqual(controller.menu.index(of: rows[0]), 4)
+        XCTAssertEqual(controller.menu.items.filter(\.isSectionHeader).map(\.title), ["On this device"])
         XCTAssertFalse(controller.menu.showsStateColumn)
-        XCTAssertTrue(rows.allSatisfy { $0.state == .off })
         XCTAssertTrue(rows.allSatisfy { $0.action != nil && $0.submenu == nil && $0.view == nil })
-        XCTAssertTrue(controller.menu.items.allSatisfy { $0.submenu == nil })
-        XCTAssertEqual(controller.menu.items.compactMap(\.view), [controller.header, controller.lan])
-        XCTAssertFalse(controller.menu.items.contains { ["Launch at Login", "GitHub", "Support"].contains($0.title) || $0.title.contains("Start Server") || $0.title.contains("Stop Server") })
-        XCTAssertFalse(controller.menu.items.contains { $0.title.contains("Made with") })
-        let settings = try XCTUnwrap(controller.menu.items.first { $0.title == "Settings…" })
+        XCTAssertEqual(controller.menu.items[1].title, "Portless settings…")
+        XCTAssertFalse(controller.menu.items.contains { $0.title == "Portless" || $0.title == "Start Portless" || $0.title == "Stop Portless" })
+        let portless = try XCTUnwrap(controller.menu.items.first { $0.title == "Portless settings…" })
+        XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(portless.action), to: portless.target, from: portless))
+        XCTAssertTrue(openedPortlessSettings)
+        XCTAssertFalse(openedSettings)
+        let settings = try XCTUnwrap(controller.menu.items.first { $0.title == "PortlessBar settings…" })
         XCTAssertEqual(settings.keyEquivalent, ",")
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(settings.action), to: settings.target, from: settings))
         XCTAssertTrue(openedSettings)
-    }
-
-    @MainActor
-    func testLANRowReflectsModeAndStaleRoutes() throws {
-        _ = NSApplication.shared
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = ServerStore(stateDirectory: root.path, storageDirectory: root, monitor: false)
-        func row(lan: Bool, hostname: String) -> LANModeSelector {
-            store.proxyRunning = true
-            store.lanMode = lan
-            store.routes = [Route(hostname: hostname, port: 4000, pid: 0)]
-            return StatusMenuController(store: store).lan
-        }
-        let off = row(lan: false, hostname: "web.localhost")
-        XCTAssertEqual(off.selector.label(forSegment: 0), "This Mac")
-        XCTAssertEqual(off.selector.label(forSegment: 1), "Network")
-        XCTAssertEqual(off.selector.trackingMode, .selectOne)
-        XCTAssertEqual(off.selector.accessibilityLabel(), "LAN mode")
-        XCTAssertEqual(off.selector.selectedSegment, 0)
-        XCTAssertEqual(off.status.stringValue, "This Mac only")
-        let on = row(lan: true, hostname: "web.local")
-        XCTAssertEqual(on.selector.selectedSegment, 1)
-        XCTAssertEqual(on.status.stringValue, "Reachable on your network")
-        XCTAssertEqual(row(lan: true, hostname: "web.localhost").status.stringValue, "Restart apps to update URLs")
-        XCTAssertEqual(row(lan: false, hostname: "web.local").status.stringValue, "Restart apps to update URLs")
-        store.proxyRunning = true
-        store.transitioning = true
-        store.switchingLAN = true
-        let controller = StatusMenuController(store: store)
-        XCTAssertEqual(controller.lan.status.stringValue, "Switching…")
-        XCTAssertEqual(controller.header.status.stringValue, "Connected")
-        XCTAssertFalse(controller.lan.selector.isEnabled)
-        XCTAssertFalse(controller.header.toggle.isEnabled)
-        XCTAssertEqual(controller.menu.items.firstIndex { $0.representedObject is String }, 3)
     }
 }

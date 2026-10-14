@@ -11,51 +11,30 @@ enum PortlessWordmark {
 
 @MainActor
 final class ProxyHeader: NSView {
-    let title: NSTextField
-    let status = NSTextField(labelWithString: "Disconnected")
+    let title = NSTextField(labelWithString: PortlessWordmark.text)
     let toggle = NSSwitch()
 
-    init(title text: String = PortlessWordmark.text, font: NSFont? = nil, label: String = "Portless proxy") {
-        title = NSTextField(labelWithString: text)
-        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 50))
+    init() {
+        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 44))
         autoresizingMask = [.width]
-        let menuSize = NSFont.menuFont(ofSize: 0).pointSize
-        title.font = font ?? PortlessWordmark.font(size: menuSize + 1)
-        // Native rows without a checkmark column start their text at 16pt.
-        // Label cells add 2pt of their own inset to this frame.
-        status.font = .menuFont(ofSize: max(11, menuSize - 1))
-        status.textColor = .secondaryLabelColor
-        toggle.setAccessibilityLabel(label)
-        for view in [title, status, toggle] {
+        title.font = PortlessWordmark.font(size: NSFont.menuFont(ofSize: 0).pointSize + 3)
+        title.alignment = .left
+        toggle.setAccessibilityLabel("Portless proxy")
+        for view in [title, toggle] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
         NSLayoutConstraint.activate([
-            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            title.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            status.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            status.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 3),
-            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8),
-            toggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            toggle.centerYAnchor.constraint(equalTo: centerYAnchor),
+            title.centerYAnchor.constraint(equalTo: centerYAnchor),
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             title.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -12),
-            status.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -12)
+            toggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            toggle.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
-        resizeToFit()
-    }
-    override var isFlipped: Bool { true }
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: max(270, max(title.intrinsicContentSize.width, status.intrinsicContentSize.width) + toggle.intrinsicContentSize.width + 38),
-               height: max(50, title.intrinsicContentSize.height + status.intrinsicContentSize.height + 19,
-                           toggle.intrinsicContentSize.height + 16))
-    }
-    func resizeToFit() {
-        invalidateIntrinsicContentSize()
-        frame.size = NSSize(width: max(frame.width, intrinsicContentSize.width), height: intrinsicContentSize.height)
     }
     func setConnected(_ connected: Bool) {
         let state: NSControl.StateValue = connected ? .on : .off
-        // Reassigning a clicked switch's state interrupts its native animation.
+        // Preserve a clicked switch's native animation while its command runs.
         guard toggle.state != state else { return }
         guard window?.isVisible == true, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             toggle.state = state
@@ -70,124 +49,32 @@ final class ProxyHeader: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
-@MainActor
-private final class SelectionSnapshot: NSImageView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-@MainActor
-final class LANModeSelector: NSView {
-    let selector = NSSegmentedControl(labels: ["This Mac", "Network"], trackingMode: .selectOne, target: nil, action: nil)
-    let status = NSTextField(labelWithString: "This Mac only")
-    private var presentedSegment: Int?
-    private var selectionOverlay: NSImageView?
-
-    init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 270, height: 50))
-        autoresizingMask = [.width]
-        selector.segmentDistribution = .fillEqually
-        selector.setAccessibilityLabel("LAN mode")
-        status.font = .menuFont(ofSize: max(11, NSFont.menuFont(ofSize: 0).pointSize - 1))
-        status.textColor = .secondaryLabelColor
-        for view in [selector, status] as [NSView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            selector.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            selector.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            selector.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            status.leadingAnchor.constraint(equalTo: selector.leadingAnchor),
-            status.topAnchor.constraint(equalTo: selector.bottomAnchor, constant: 5),
-            status.trailingAnchor.constraint(lessThanOrEqualTo: selector.trailingAnchor),
-            status.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8)
-        ])
-        resizeToFit()
-    }
-    override var isFlipped: Bool { true }
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: max(270, max(selector.intrinsicContentSize.width, status.intrinsicContentSize.width) + 26),
-               height: max(50, selector.intrinsicContentSize.height + status.intrinsicContentSize.height + 21))
-    }
-    func resizeToFit() {
-        invalidateIntrinsicContentSize()
-        frame.size = NSSize(width: max(frame.width, intrinsicContentSize.width), height: intrinsicContentSize.height)
-    }
-    func setNetwork(_ network: Bool) {
-        let segment = network ? 1 : 0
-        let previous = presentedSegment
-        presentedSegment = segment
-        guard previous != segment else {
-            if selector.selectedSegment != segment { selector.selectedSegment = segment }
-            return
-        }
-        selectionOverlay?.removeFromSuperview()
-        selectionOverlay = nil
-        // AppKit does not animate selectedSegment. Fade the previous native
-        // rendering into the new selection, including when a click already
-        // changed selectedSegment before the model received the action.
-        guard let previous, window?.isVisible == true,
-              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            selector.selectedSegment = segment
-            return
-        }
-        layoutSubtreeIfNeeded()
-        selector.selectedSegment = previous
-        guard let bitmap = selector.bitmapImageRepForCachingDisplay(in: selector.bounds) else {
-            selector.selectedSegment = segment
-            return
-        }
-        selector.cacheDisplay(in: selector.bounds, to: bitmap)
-        selector.selectedSegment = segment
-        let image = NSImage(size: selector.bounds.size)
-        image.addRepresentation(bitmap)
-        let overlay = SelectionSnapshot(frame: selector.frame)
-        overlay.wantsLayer = true
-        overlay.image = image
-        overlay.imageScaling = .scaleAxesIndependently
-        overlay.setAccessibilityElement(false)
-        addSubview(overlay, positioned: .above, relativeTo: selector)
-        selectionOverlay = overlay
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            overlay.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            Task { @MainActor [weak self] in
-                overlay.removeFromSuperview()
-                if self?.selectionOverlay === overlay { self?.selectionOverlay = nil }
-            }
-        }
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-}
-
 /// Native proxy controls and URL rows, with one entry point to settings.
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     let header = ProxyHeader()
-    let lan = LANModeSelector()
     private let store: ServerStore
     private let openSettings: () -> Void
+    private let openPortlessSettings: () -> Void
     private var subscription: AnyCancellable?
     private var errorItem: NSMenuItem!
     private let emptyItem = NSMenuItem(title: "No servers registered", action: nil, keyEquivalent: "")
-    private var nearbyItems: [NSMenuItem] = []
+    private let routesEnd = NSMenuItem.separator()
+    private var serverItems: [NSMenuItem] = []
+    private var displayedLocal: [String]?
     private var displayedNearby: [NearbyRoute]?
-    private var displayedDiscoveryError: String?
 
-    init(store: ServerStore, openSettings: @escaping () -> Void = {}) {
+    init(store: ServerStore, openSettings: @escaping () -> Void = {}, openPortlessSettings: @escaping () -> Void = {}) {
         self.store = store
         self.openSettings = openSettings
+        self.openPortlessSettings = openPortlessSettings
         super.init()
         menu.autoenablesItems = false
         menu.showsStateColumn = false
         menu.delegate = self
         header.toggle.target = self
         header.toggle.action = #selector(toggleProxy(_:))
-        lan.selector.target = self
-        lan.selector.action = #selector(selectLANMode(_:))
         rebuild()
         subscription = Publishers.Merge(store.objectWillChange, store.nearby.objectWillChange).sink { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.updateState() }
@@ -211,92 +98,70 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
-        nearbyItems = []
+        serverItems = []
+        displayedLocal = nil
         displayedNearby = nil
-        displayedDiscoveryError = nil
-        for view in [header, lan] as [NSView] {
-            let item = NSMenuItem()
-            item.view = view
-            menu.addItem(item)
-        }
+        let logo = NSMenuItem()
+        logo.view = header
+        menu.addItem(logo)
+        menu.addItem(item("Portless settings…", action: #selector(showPortlessSettings)))
         menu.addItem(.separator())
-        menu.addItem(.separator())
+        menu.addItem(routesEnd)
         errorItem = item("Portless Error…", action: #selector(showError))
         menu.addItem(errorItem)
-        menu.addItem(item("Settings…", action: #selector(showSettings), key: ","))
+        menu.addItem(item("PortlessBar settings…", action: #selector(showSettings), key: ","))
         menu.addItem(item("Quit PortlessBar", action: #selector(quit), key: "q"))
         updateState()
     }
 
     private func updateRoutes() {
         let names = Set(store.routes.map(\.hostname)).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        let rows = menu.items.filter { $0.representedObject is String }
-        let existing = Dictionary(uniqueKeysWithValues: rows.map { ($0.representedObject as! String, $0) })
-        for row in rows where !names.contains(row.title) { menu.removeItem(row) }
-        if menu.items.contains(emptyItem), !names.isEmpty { menu.removeItem(emptyItem) }
-        for (offset, name) in names.enumerated() {
-            let row = existing[name] ?? item(name, action: #selector(openServer(_:)))
-            row.representedObject = name
-            row.toolTip = "Open in browser"
-            let position = offset + 3
-            if menu.index(of: row) != position {
-                if menu.index(of: row) >= 0 { menu.removeItem(row) }
-                menu.insertItem(row, at: position)
+        let nearby = store.nearby.routes
+        guard names != displayedLocal || nearby != displayedNearby else { return }
+        let localRows = Dictionary(uniqueKeysWithValues: serverItems.compactMap { row in
+            (row.representedObject as? String).map { ($0, row) }
+        })
+        let networkRows = Dictionary(uniqueKeysWithValues: serverItems.compactMap { row in
+            (row.representedObject as? NearbyRoute).map { ($0, row) }
+        })
+        for row in serverItems { menu.removeItem(row) }
+        serverItems = []
+        displayedLocal = names
+        displayedNearby = nearby
+
+        if !names.isEmpty {
+            serverItems.append(.sectionHeader(title: "On this device"))
+            for name in names {
+                let row = localRows[name] ?? item(name, action: #selector(openServer(_:)))
+                row.representedObject = name
+                row.toolTip = "Open in browser"
+                serverItems.append(row)
             }
         }
-        if names.isEmpty, !menu.items.contains(emptyItem) {
+        if !nearby.isEmpty {
+            if !serverItems.isEmpty { serverItems.append(.separator()) }
+            serverItems.append(.sectionHeader(title: "On this network"))
+            for route in nearby {
+                let row = networkRows[route] ?? item(route.title, action: #selector(openNearbyServer(_:)))
+                row.representedObject = route
+                row.toolTip = "\(route.url.absoluteString)\n\(route.address)"
+                serverItems.append(row)
+            }
+        }
+        if serverItems.isEmpty {
             emptyItem.isEnabled = false
-            menu.insertItem(emptyItem, at: 3)
+            serverItems = [emptyItem]
         }
-        emptyItem.title = store.nearby.routes.isEmpty ? "No servers registered" : "No local servers registered"
-        updateNearbyRoutes(at: 3 + max(1, names.count))
-    }
-
-    private func updateNearbyRoutes(at position: Int) {
-        let routes = store.nearby.routes
-        let error = store.nearby.error
-        guard routes != displayedNearby || error != displayedDiscoveryError else { return }
-        for item in nearbyItems { menu.removeItem(item) }
-        nearbyItems = []
-        displayedNearby = routes
-        displayedDiscoveryError = error
-        guard !routes.isEmpty || error != nil else { return }
-        nearbyItems = [.separator(), item("Nearby apps")]
-        for route in routes {
-            let row = item(route.title, action: #selector(openNearbyServer(_:)))
-            row.representedObject = route
-            row.toolTip = "\(route.url.absoluteString)\n\(route.address)"
-            nearbyItems.append(row)
-        }
-        if let error {
-            let row = item("Nearby apps unavailable", action: #selector(showError))
-            row.toolTip = error
-            nearbyItems.append(row)
-        }
-        for (offset, row) in nearbyItems.enumerated() { menu.insertItem(row, at: position + offset) }
+        for row in serverItems { menu.insertItem(row, at: menu.index(of: routesEnd)) }
     }
 
     private func updateState() {
         header.setConnected(store.proxyToggleOn)
         header.toggle.isEnabled = !store.transitioning && store.installationIssue == nil
-        header.status.stringValue = store.installationIssue != nil ? "Portless unavailable" : store.transitioning && !store.switchingLAN
-            ? (store.proxyToggleOn ? "Connecting…" : "Disconnecting…")
-            : (store.proxyToggleOn ? "Connected" : "Disconnected")
-        lan.setNetwork(store.lanSelectionOn)
-        lan.selector.isEnabled = !store.transitioning && store.installationIssue == nil && store.supportsLAN != false && store.canChooseLANMode
-        // Running apps keep the hostname they registered with until they restart.
-        let stale = store.routes.contains { $0.hostname.hasSuffix(".local") != store.lanMode }
-        lan.status.stringValue = store.installationIssue != nil ? "Set up Portless first"
-            : store.supportsLAN == false ? "Update Portless for Network"
-            : !store.canChooseLANMode ? "Connect the proxy first"
-            : store.switchingLAN ? "Switching…"
-            : stale ? "Restart apps to update URLs"
-            : (store.lanMode ? "Reachable on your network" : "This Mac only")
+        header.toggle.toolTip = store.installationIssue ?? (store.transitioning ? "Changing the Portless connection…" : "Start or stop the Portless proxy")
         errorItem?.title = store.installationIssue != nil ? "Portless setup…" : store.supportsLAN == false ? "Network mode setup…" : "Portless Error…"
-        errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false
+        errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false && store.nearby.error == nil
         updateRoutes()
-        header.resizeToFit()
-        lan.resizeToFit()
         menu.update()
     }
 
@@ -304,10 +169,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let enabled = sender.state == .on
         Task { await store.setProxyRunning(enabled) }
     }
-    @objc private func selectLANMode(_ sender: NSSegmentedControl) {
-        let enabled = sender.selectedSegment == 1
-        Task { await store.setLANMode(enabled) }
-    }
+    @objc private func showPortlessSettings() { openPortlessSettings() }
     @objc private func openServer(_ item: NSMenuItem) {
         if let hostname = item.representedObject as? String { store.open(hostname) }
     }
