@@ -41,9 +41,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private var subscription: AnyCancellable?
     private var errorItem: NSMenuItem!
     private let emptyItem = NSMenuItem(title: "No servers registered", action: nil, keyEquivalent: "")
-    private var nearbyItems: [NSMenuItem] = []
+    private let routesEnd = NSMenuItem.separator()
+    private var serverItems: [NSMenuItem] = []
+    private var displayedLocal: [String]?
     private var displayedNearby: [NearbyRoute]?
-    private var displayedDiscoveryError: String?
 
     init(store: ServerStore, openSettings: @escaping () -> Void = {}, openPortlessSettings: @escaping () -> Void = {}) {
         self.store = store
@@ -78,16 +79,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
-        nearbyItems = []
+        serverItems = []
+        displayedLocal = nil
         displayedNearby = nil
-        displayedDiscoveryError = nil
         let logo = NSMenuItem()
         logo.view = header
         menu.addItem(logo)
         menu.addItem(proxyItem)
         menu.addItem(item("Portless settings…", action: #selector(showPortlessSettings)))
         menu.addItem(.separator())
-        menu.addItem(.separator())
+        menu.addItem(routesEnd)
         errorItem = item("Portless Error…", action: #selector(showError))
         menu.addItem(errorItem)
         menu.addItem(item("PortlessBar settings…", action: #selector(showSettings), key: ","))
@@ -97,50 +98,43 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func updateRoutes() {
         let names = Set(store.routes.map(\.hostname)).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        let rows = menu.items.filter { $0.representedObject is String }
-        let existing = Dictionary(uniqueKeysWithValues: rows.map { ($0.representedObject as! String, $0) })
-        for row in rows where !names.contains(row.title) { menu.removeItem(row) }
-        if menu.items.contains(emptyItem), !names.isEmpty { menu.removeItem(emptyItem) }
-        for (offset, name) in names.enumerated() {
-            let row = existing[name] ?? item(name, action: #selector(openServer(_:)))
-            row.representedObject = name
-            row.toolTip = "Open in browser"
-            let position = offset + 4
-            if menu.index(of: row) != position {
-                if menu.index(of: row) >= 0 { menu.removeItem(row) }
-                menu.insertItem(row, at: position)
+        let nearby = store.nearby.routes
+        guard names != displayedLocal || nearby != displayedNearby else { return }
+        let localRows = Dictionary(uniqueKeysWithValues: serverItems.compactMap { row in
+            (row.representedObject as? String).map { ($0, row) }
+        })
+        let networkRows = Dictionary(uniqueKeysWithValues: serverItems.compactMap { row in
+            (row.representedObject as? NearbyRoute).map { ($0, row) }
+        })
+        for row in serverItems { menu.removeItem(row) }
+        serverItems = []
+        displayedLocal = names
+        displayedNearby = nearby
+
+        if !names.isEmpty {
+            serverItems.append(.sectionHeader(title: "On this device"))
+            for name in names {
+                let row = localRows[name] ?? item(name, action: #selector(openServer(_:)))
+                row.representedObject = name
+                row.toolTip = "Open in browser"
+                serverItems.append(row)
             }
         }
-        if names.isEmpty, !menu.items.contains(emptyItem) {
+        if !nearby.isEmpty {
+            if !serverItems.isEmpty { serverItems.append(.separator()) }
+            serverItems.append(.sectionHeader(title: "On this network"))
+            for route in nearby {
+                let row = networkRows[route] ?? item(route.title, action: #selector(openNearbyServer(_:)))
+                row.representedObject = route
+                row.toolTip = "\(route.url.absoluteString)\n\(route.address)"
+                serverItems.append(row)
+            }
+        }
+        if serverItems.isEmpty {
             emptyItem.isEnabled = false
-            menu.insertItem(emptyItem, at: 4)
+            serverItems = [emptyItem]
         }
-        emptyItem.title = store.nearby.routes.isEmpty ? "No servers registered" : "No local servers registered"
-        updateNearbyRoutes(at: 4 + max(1, names.count))
-    }
-
-    private func updateNearbyRoutes(at position: Int) {
-        let routes = store.nearby.routes
-        let error = store.nearby.error
-        guard routes != displayedNearby || error != displayedDiscoveryError else { return }
-        for item in nearbyItems { menu.removeItem(item) }
-        nearbyItems = []
-        displayedNearby = routes
-        displayedDiscoveryError = error
-        guard !routes.isEmpty || error != nil else { return }
-        nearbyItems = [.separator(), item("Nearby apps")]
-        for route in routes {
-            let row = item(route.title, action: #selector(openNearbyServer(_:)))
-            row.representedObject = route
-            row.toolTip = "\(route.url.absoluteString)\n\(route.address)"
-            nearbyItems.append(row)
-        }
-        if let error {
-            let row = item("Nearby apps unavailable", action: #selector(showError))
-            row.toolTip = error
-            nearbyItems.append(row)
-        }
-        for (offset, row) in nearbyItems.enumerated() { menu.insertItem(row, at: position + offset) }
+        for row in serverItems { menu.insertItem(row, at: menu.index(of: routesEnd)) }
     }
 
     private func updateState() {
@@ -149,7 +143,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             : (store.proxyRunning ? "Stop portless" : "Start portless")
         proxyItem.isEnabled = !store.transitioning && store.installationIssue == nil
         errorItem?.title = store.installationIssue != nil ? "Portless setup…" : store.supportsLAN == false ? "Network mode setup…" : "Portless Error…"
-        errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false
+        errorItem?.isHidden = store.error == nil && store.installationIssue == nil && store.supportsLAN != false && store.nearby.error == nil
         updateRoutes()
         menu.update()
     }

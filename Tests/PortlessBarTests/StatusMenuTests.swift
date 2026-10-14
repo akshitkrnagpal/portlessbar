@@ -85,7 +85,8 @@ final class StatusMenuTests: XCTestCase {
         XCTAssertEqual(controller.header.title.frame.midX, 200, accuracy: 1)
         let rows = controller.menu.items.filter { $0.representedObject is String }
         XCTAssertEqual(rows.map(\.title), ["api.localhost", "web.localhost"])
-        XCTAssertEqual(controller.menu.index(of: rows[0]), 4)
+        XCTAssertEqual(controller.menu.index(of: rows[0]), 5)
+        XCTAssertEqual(controller.menu.items.filter(\.isSectionHeader).map(\.title), ["On this device"])
         XCTAssertFalse(controller.menu.showsStateColumn)
         XCTAssertTrue(rows.allSatisfy { $0.action != nil && $0.submenu == nil && $0.view == nil })
         let portless = try XCTUnwrap(controller.menu.items.first { $0.title == "Portless settings…" })

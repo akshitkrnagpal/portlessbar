@@ -34,8 +34,8 @@
 
 ## Within reach
 
-- **Open apps in one click.** Your current Portless registrations appear as URLs. Pick one to open it in your default browser.
-- **Find apps on nearby Macs.** Portless apps advertised with `--lan` on other Macs appear under Nearby apps. Discovery works while your own proxy is disconnected or in This Mac mode, and uses each remote proxy's port and HTTP/HTTPS setting.
+- **Open apps in one click.** Your current Portless registrations appear as URLs under **On this device**. Pick one to open it in your default browser.
+- **Find apps on nearby Macs.** Portless apps advertised with `--lan` on other Macs appear under **On this network**. Discovery works while your own proxy is disconnected or in This Mac mode, and uses each remote proxy's port and HTTP/HTTPS setting.
 - **Start or stop the proxy.** Use the menu’s Start portless or Stop portless action without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
 - **Choose This Mac or Network.** Reach your apps from other devices on your network, or keep them on this Mac. Choose the mode in Portless settings alongside the proxy port, HTTPS, domains, wildcard routing, and custom TLS certificate files. Saving restarts a running proxy; stopped proxies stay stopped. Restart your apps to register their new URLs.
 - **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
@@ -51,7 +51,7 @@ You need **macOS 14 or newer** and an existing [Portless installation](https://g
 
 Run your development apps through Portless as usual. They appear in the menu automatically. Use **Start portless** or **Stop portless** to control the proxy, **Portless settings…** for proxy options, and **PortlessBar settings…** for Launch at Login and updates.
 
-For apps on another Mac, run its Portless proxy with `--lan` and connect both Macs to the same network. Allow PortlessBar's Local Network access if macOS asks. Nearby apps appear automatically; PortlessBar filters out this Mac's advertisements and unrelated Bonjour web services. Discovery does not install or trust the other Mac's HTTPS certificate. Your browser uses its existing certificate trust settings when you open a URL.
+For apps on another Mac, run its Portless proxy with `--lan` and connect both Macs to the same network. Allow PortlessBar's Local Network access if macOS asks. Network apps appear automatically; PortlessBar filters out this Mac's advertisements and unrelated Bonjour web services. Discovery does not install or trust the other Mac's HTTPS certificate. Your browser uses its existing certificate trust settings when you open a URL.
 
 Or install with Homebrew:
 
