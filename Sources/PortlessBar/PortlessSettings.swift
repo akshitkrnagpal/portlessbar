@@ -101,14 +101,15 @@ final class PortlessSettingsWindowController: NSWindowController {
     init(store: ServerStore) {
         self.store = store
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 560),
-                              styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
+                              styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "Portless settings"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.contentMinSize = NSSize(width: 480, height: 560)
         window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName("PortlessBarProxySettings")
         super.init(window: window)
-        window.center()
+        if !window.setFrameUsingName("PortlessBarProxySettings") { window.center() }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -116,8 +117,9 @@ final class PortlessSettingsWindowController: NSWindowController {
     func show() {
         // Reopening an already visible window preserves unsaved edits.
         if window?.isVisible != true {
+            let frame = window?.frame
             window?.contentViewController = NSHostingController(rootView: PortlessSettingsView(store: store, close: { [weak self] in self?.close() }))
-            window?.setContentSize(NSSize(width: 480, height: 560))
+            if let frame { window?.setFrame(frame, display: false) }
         }
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -143,67 +145,79 @@ struct PortlessSettingsView: View {
             Text("Portless settings")
                 .font(.system(size: 14, weight: .semibold))
                 .frame(height: 46).frame(maxWidth: .infinity)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    section("Connection") {
-                        row("Available on", help: "--lan · This Mac uses loopback; Network uses .local over mDNS.") {
-                            Picker("Available on", selection: $draft.lan) {
-                                Text("This Mac").tag(false)
-                                Text("Network").tag(true)
-                            }.labelsHidden().pickerStyle(.segmented).frame(width: 220)
-                                .disabled(store.supportsLAN == false)
-                        }
-                        Divider()
-                        row("HTTPS", help: "--https / --no-tls") {
-                            Toggle("HTTPS", isOn: $draft.tls).labelsHidden().toggleStyle(.switch)
-                                .onChange(of: draft.tls) { old, enabled in
-                                    if draft.port == (old ? "443" : "80") { draft.port = enabled ? "443" : "80" }
-                                }
-                        }
-                        Divider()
-                        row("Proxy port", help: "-p / --port · Ports below 1024 may require administrator approval.") {
-                            TextField("443", text: $draft.port).frame(width: 90)
-                        }
-                        if draft.lan {
-                            Divider()
-                            row("LAN IP address", help: "--ip · Blank follows network changes automatically.") {
-                                TextField("Automatic", text: $draft.ip).frame(width: 220)
-                            }
-                        }
-                    }
-                    section("Routing") {
-                        if !draft.lan {
-                            row("Domains", help: "--tld · Separate multiple domains with commas.") {
-                                TextField("localhost, test", text: $draft.domains).frame(width: 220)
+            ScrollViewReader { scroll in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        section("Connection") {
+                            row("Available on", help: "--lan · This Mac uses loopback; Network uses .local over mDNS.") {
+                                Picker("Available on", selection: $draft.lan) {
+                                    Text("This Mac").tag(false)
+                                    Text("Network").tag(true)
+                                }.labelsHidden().pickerStyle(.segmented).frame(width: 220)
+                                    .disabled(store.supportsLAN == false)
                             }
                             Divider()
-                        }
-                        row("Wildcard subdomains", help: "--wildcard · Unregistered subdomains fall back to the parent app.") {
-                            Toggle("Wildcard subdomains", isOn: $draft.wildcard).labelsHidden().toggleStyle(.switch)
-                        }
-                    }
-                    Text(draft.lan ? "Apps use .local on your network. Restart your apps after changing modes to update their URLs."
-                         : "Apps use these domains on this Mac. The first domain is used for app URLs.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 12)
-                    if store.supportsLAN == false {
-                        Text("Update Portless to use Network mode.").font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 12)
-                    }
-                    DisclosureGroup("Advanced", isExpanded: $advanced) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            section("TLS certificate") {
-                                fileRow("Certificate", value: $draft.certificate, help: "--cert")
+                            row("HTTPS", help: "--https / --no-tls") {
+                                Toggle("HTTPS", isOn: $draft.tls).labelsHidden().toggleStyle(.switch)
+                                    .onChange(of: draft.tls) { old, enabled in
+                                        if draft.port == (old ? "443" : "80") { draft.port = enabled ? "443" : "80" }
+                                    }
+                            }
+                            Divider()
+                            row("Proxy port", help: "-p / --port · Ports below 1024 may require administrator approval.") {
+                                TextField("443", text: $draft.port).frame(width: 90)
+                            }
+                            if draft.lan {
                                 Divider()
-                                fileRow("Private key", value: $draft.privateKey, help: "--key")
-                            }.disabled(!draft.tls)
-                            Text("Leave both blank to use Portless’s local CA.").font(.system(size: 11)).foregroundStyle(.secondary)
-                            Text("Portless runs in the background here. Use --foreground in Terminal for debugging. --state-dir applies to service install; this app uses the state directory below.")
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
-                            Text(store.stateDirectory).font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
-                            Link("All Portless commands and flags ↗", destination: URL(string: "https://portless.sh/commands")!)
-                                .font(.system(size: 12))
-                        }.padding(.top, 10)
-                    }.font(.system(size: 12, weight: .medium)).padding(.horizontal, 12)
-                }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
+                                row("LAN IP address", help: "--ip · Blank follows network changes automatically.") {
+                                    TextField("Automatic", text: $draft.ip).frame(width: 220)
+                                }
+                            }
+                        }
+                        section("Routing") {
+                            if !draft.lan {
+                                row("Domains", help: "--tld · Separate multiple domains with commas.") {
+                                    TextField("localhost, test", text: $draft.domains).frame(width: 220)
+                                }
+                                Divider()
+                            }
+                            row("Wildcard subdomains", help: "--wildcard · Unregistered subdomains fall back to the parent app.") {
+                                Toggle("Wildcard subdomains", isOn: $draft.wildcard).labelsHidden().toggleStyle(.switch)
+                            }
+                        }
+                        Text(draft.lan ? "Apps use .local on your network. Restart your apps after changing modes to update their URLs."
+                             : "Apps use these domains on this Mac. The first domain is used for app URLs.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 12)
+                        if store.supportsLAN == false {
+                            Text("Update Portless to use Network mode.").font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 12)
+                        }
+                        DisclosureGroup("Advanced", isExpanded: $advanced) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                section("TLS certificate") {
+                                    fileRow("Certificate", value: $draft.certificate, help: "--cert")
+                                    Divider()
+                                    fileRow("Private key", value: $draft.privateKey, help: "--key")
+                                }.disabled(!draft.tls)
+                                Text("Leave both blank to use Portless’s local CA.").font(.system(size: 11)).foregroundStyle(.secondary)
+                                Text("Portless runs in the background here. Use --foreground in Terminal for debugging. --state-dir applies to service install; this app uses the state directory below.")
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                                Text(store.stateDirectory).font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
+                                Link("All Portless commands and flags ↗", destination: URL(string: "https://portless.sh/commands")!)
+                                    .font(.system(size: 12))
+                            }.padding(.top, 10)
+                        }.font(.system(size: 12, weight: .medium))
+                            .id("advanced")
+                    }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
+                }
+                .onChange(of: advanced) { _, expanded in
+                    guard expanded else { return }
+                    // Wait for the expanded content to lay out before targeting it.
+                    DispatchQueue.main.async {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            scroll.scrollTo("advanced", anchor: .top)
+                        }
+                    }
+                }
             }
             Divider()
             VStack(alignment: .leading, spacing: 10) {
