@@ -28,7 +28,7 @@
 <br />
 
 <p align="center">
-  <img src="Assets/Demo.png" width="360" alt="PortlessBar menu showing the proxy switch and sample localhost app URLs" />
+  <img src="Assets/Demo.png" width="360" alt="PortlessBar menu showing the proxy switch, sample local servers, and sample network servers" />
 </p>
 <p align="center"><sub>Your Portless apps, right in the menu bar. Demo uses sample hostnames.</sub></p>
 

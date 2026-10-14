@@ -1,14 +1,20 @@
-# Unreleased
+# PortlessBar 0.4.0
 
-- Group registered apps under native On this device and On this network menu section headers. Hide empty groups and show No servers registered only when both groups are empty.
-- Left-align the portlessbar wordmark alongside a native proxy switch, with Portless settings directly below it. Keep the header compact without a divider or separate start/stop menu actions.
-- Add a compact Portless settings window for network mode, HTTPS, proxy port, domains, wildcard routing, and custom certificate/key files. Validate edits before saving, preserve other reconnect flags, and apply changes through Portless’s lifecycle, including installed startup services.
-- Allow resizing Portless settings and remember its window frame. Expanding Advanced brings its controls into view, with the TLS card aligned to the other sections.
-- Right-align the This device / Network selector with the other proxy settings controls.
+Find Portless apps across your network and configure your proxy from a dedicated settings window.
 
-- Discover Portless LAN apps on other Macs through Bonjour and show them under On this network. Open each URL with its advertised port and verified HTTP/HTTPS scheme.
-- Keep nearby discovery available when this Mac's proxy is disconnected or in This Mac mode. Filter out this Mac's advertisements and unrelated web services, and update entries as services appear, disappear, or change addresses.
-- Explain Local Network access to macOS. Discovery does not change certificate trust or control remote proxies.
+- Show local registrations under **On this device** and verified Bonjour apps from other Macs under **On this network**. Hide empty groups; show **No servers registered** when both are empty.
+- Keep the compact, left-aligned portlessbar wordmark and native proxy switch, with **Portless settings…** directly below.
+- Configure This device / Network availability, HTTPS, proxy port, domains, wildcard routing, and custom TLS certificate/key files. Validate edits, preserve other reconnect flags, and apply settings through Portless’s lifecycle, including installed startup services. Saving restarts a running proxy; stopped proxies stay stopped.
+- Resize the settings window, remember its frame, and reveal the Advanced controls when expanded.
+- Discover network apps even when this Mac’s proxy is stopped or available only on this device. Filter out this Mac’s advertisements and unrelated web services. Use each remote proxy’s advertised port and verified HTTP/HTTPS scheme.
+
+Requires macOS 14 or newer and an existing Portless installation with its supported Node.js runtime. Tested with Portless 0.15.6; proxy compatibility coverage also includes older installations. Network discovery requires Portless LAN mode on another Mac and Local Network access when macOS asks. Discovery does not change certificate trust or control remote proxies. Restart development apps after changing domains or network mode to register their new URLs.
+
+The universal download supports Apple Silicon and Intel, is Developer ID signed and notarized by Apple, and includes a stapled notarization ticket. The finalized archive’s checksum is included in SHA256SUMS.txt. In-app updates use the existing Sparkle signing key.
+
+Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
+
+Made with ❤️ by [akshit.io](https://akshit.io).
 
 # PortlessBar 0.3.2
 
