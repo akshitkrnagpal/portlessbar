@@ -362,6 +362,7 @@ enum Authorization {
 
 @MainActor
 final class ServerStore: ObservableObject {
+    let nearby: NearbyDiscovery
     @Published var routes: [Route] = []
     @Published var proxyRunning = false
     @Published var transitioning = false
@@ -392,7 +393,8 @@ final class ServerStore: ObservableObject {
     var pollingInterval: Duration { menuOpen ? .seconds(2) : .seconds(15) }
 
     init(stateDirectory: String? = nil, storageDirectory: URL? = nil, command: ProxyCommand = ProxyCommand(), monitor: Bool = true,
-         servicePlist: URL = URL(fileURLWithPath: "/Library/LaunchDaemons/sh.portless.proxy.plist")) {
+         servicePlist: URL = URL(fileURLWithPath: "/Library/LaunchDaemons/sh.portless.proxy.plist"), nearby: NearbyDiscovery? = nil) {
+        self.nearby = nearby ?? NearbyDiscovery(enabled: monitor)
         self.stateDirectory = stateDirectory ?? ProcessInfo.processInfo.environment["PORTLESS_STATE_DIR"]
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".portless").path
         self.command = command

@@ -18,6 +18,14 @@ PORTLESS_TEST_NODE="$(command -v node)" swift test
 
 Tests create an isolated temporary Portless state directory; they do not change `~/.portless`. Tests choose available ports at runtime. Keep registry access read-only, delegate proxy lifecycle to Portless, and avoid logging process environments or credentials.
 
+To verify native Bonjour discovery against another Mac running Portless with `--lan` on the same network:
+
+```sh
+PORTLESS_TEST_BONJOUR=1 swift test --filter NearbyDiscoveryTests/testLiveBonjourDiscovery
+```
+
+This optional check browses advertised web services and probes their Portless header. The regular discovery tests use fixtures and do not access your network.
+
 Keep pull requests focused. Include the behavior changed and how it was verified. Update the README and release notes for user-facing changes. For UI changes, include screenshots at light and dark appearance when relevant.
 
 Use the issue templates for reproducible bugs and feature proposals. See [release instructions](docs/RELEASING.md) for packaging and signing. Contributions are licensed under Apache 2.0. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).

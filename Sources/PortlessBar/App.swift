@@ -65,5 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationWillTerminate(_ notification: Notification) { store.nearby.stop() }
+
     @objc private func showSettings() { settings.show() }
 }
