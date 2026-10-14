@@ -35,6 +35,7 @@
 ## Within reach
 
 - **Open apps in one click.** Your current Portless registrations appear as URLs. Pick one to open it in your default browser.
+- **Find apps on nearby Macs.** Portless apps advertised with `--lan` on other Macs appear under Nearby apps. Discovery works while your own proxy is disconnected or in This Mac mode, and uses each remote proxy's port and HTTP/HTTPS setting.
 - **One switch for the proxy.** Connect or disconnect without stopping your development servers. PortlessBar remembers the observed proxy configuration for reconnecting.
 - **Choose This Mac or Network.** Reach your apps from other devices on your network, or keep them on this Mac. Changing modes preserves the main switch's on/off setting. An enabled proxy restarts; running apps get their new URLs when you restart them.
 - **Ready when you log in.** Enable Launch at Login in Settings and keep your apps within reach throughout the day.
@@ -49,6 +50,8 @@ You need **macOS 14 or newer** and an existing [Portless installation](https://g
 3. Open it, then click **`p_`** in your menu bar.
 
 Run your development apps through Portless as usual. They appear in the menu automatically. Use the header switch to control the proxy and **Settings…** to enable Launch at Login.
+
+For apps on another Mac, run its Portless proxy with `--lan` and connect both Macs to the same network. Allow PortlessBar's Local Network access if macOS asks. Nearby apps appear automatically; PortlessBar filters out this Mac's advertisements and unrelated Bonjour web services. Discovery does not install or trust the other Mac's HTTPS certificate. Your browser uses its existing certificate trust settings when you open a URL.
 
 Or install with Homebrew:
 
@@ -87,6 +90,8 @@ See [Contributing](CONTRIBUTING.md) for development and tests, and [Security](SE
 Tested with **Portless 0.8.0, 0.15.3 and 0.15.6**. Integration uses Portless's state files and process arguments, so other versions may need compatibility updates.
 
 LAN mode needs a Portless version that has LAN mode; it was tested with 0.15.6. Turning LAN mode off returns to `.localhost`, so set a custom TLD again in Portless.
+
+Nearby discovery was tested against a Portless LAN proxy on another Mac. It uses the Bonjour web service records that Portless publishes on macOS. Portless on Linux currently publishes address records only, so its routes cannot be enumerated this way. Nearby entries refresh automatically and disappear when their advertisements are withdrawn or their proxies stop responding.
 
 If Portless or its supported Node.js runtime is missing, the menu shows setup instructions and disables the proxy controls. Network mode is disabled for older CLI versions before a running proxy is stopped. Proxy identity is independent of package-manager paths: PortlessBar checks that the saved PID owns the listening socket and that the service responds with Portless's identifying header. Existing proxies remain controllable after their original launcher or package directory disappears, provided a working Portless CLI is available for lifecycle commands.
 

@@ -10,6 +10,8 @@
 		098B283F43C50E2466066502 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = F312846A0EFFED93C8EDD4E0 /* Sparkle */; };
 		0B20B21D61AF10BEE06C32BF /* PortlessSystem.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3050558F12083E48208A3E65 /* PortlessSystem.h */; };
 		185C0BA9BC34035DE11FB243 /* StatusMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8437B9D99C7171AE3867A53 /* StatusMenu.swift */; };
+		22C395CDA03793620B9082D4 /* NearbyDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EC8EEE4D0B764BB8D914FB /* NearbyDiscovery.swift */; };
+		3003D9D938E3D5ABB4851F04 /* NearbyDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9421EF1C800877248166BA5D /* NearbyDiscoveryTests.swift */; };
 		340EF6D1EB3388F0FED76154 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 7B83327E7215979E449816F6 /* LICENSE */; };
 		3941514491B4FE45BCB822F4 /* RecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57D39556F5D4E7DAB7987D01 /* RecoveryTests.swift */; };
 		394ED6D2EEE65B29B4B7D220 /* GitHubMark.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 0F6E9E25C660E1A12F858B6B /* GitHubMark.pdf */; };
@@ -82,6 +84,7 @@
 		6E6CFD735FD2572A38284051 /* PortlessSystem.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PortlessSystem.c; sourceTree = "<group>"; };
 		7B83327E7215979E449816F6 /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		881F280262629AD1126747C5 /* libPortlessSystem.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPortlessSystem.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		9421EF1C800877248166BA5D /* NearbyDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyDiscoveryTests.swift; sourceTree = "<group>"; };
 		9A9868E04D436C449EF94346 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		A88AB7A9E17C0419B64150C9 /* XMark.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = XMark.pdf; sourceTree = "<group>"; };
 		AA621D518EC7D4152EAC0B50 /* Sparkle-LICENSE */ = {isa = PBXFileReference; path = "Sparkle-LICENSE"; sourceTree = "<group>"; };
@@ -91,6 +94,7 @@
 		C93170E080B51870DD473C2C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D5E053423F49E01FC8604D83 /* CommandExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandExecution.swift; sourceTree = "<group>"; };
 		DBC9EB0BC76401161915C63E /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		E1EC8EEE4D0B764BB8D914FB /* NearbyDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyDiscovery.swift; sourceTree = "<group>"; };
 		E264FAF3FA9BC69903C46D6E /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
 		E85E31470E96FEB6E67A8330 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
 		ED57934E965C56EEC11DA87F /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
@@ -133,6 +137,7 @@
 			children = (
 				E85E31470E96FEB6E67A8330 /* IntegrationTests.swift */,
 				0A5E6C86AC0D7C8A50FA8D2D /* LoginItemTests.swift */,
+				9421EF1C800877248166BA5D /* NearbyDiscoveryTests.swift */,
 				57D39556F5D4E7DAB7987D01 /* RecoveryTests.swift */,
 				5562ABC925958CEC8A9E5A1A /* StatusMenuTests.swift */,
 			);
@@ -166,6 +171,7 @@
 				D5E053423F49E01FC8604D83 /* CommandExecution.swift */,
 				AAD65B58430F51E10CB272A4 /* LoginItem.swift */,
 				020BA23F94147481950C19FA /* Models.swift */,
+				E1EC8EEE4D0B764BB8D914FB /* NearbyDiscovery.swift */,
 				ED57934E965C56EEC11DA87F /* ServerStore.swift */,
 				9A9868E04D436C449EF94346 /* Settings.swift */,
 				C8437B9D99C7171AE3867A53 /* StatusMenu.swift */,
@@ -363,6 +369,7 @@
 				93BE8ED1A2B4524BA19F9DA7 /* CommandExecution.swift in Sources */,
 				78290F928670A0609D8B1F48 /* LoginItem.swift in Sources */,
 				75ADF859D8C8F3AF411D35EE /* Models.swift in Sources */,
+				22C395CDA03793620B9082D4 /* NearbyDiscovery.swift in Sources */,
 				AD02B4C1DC402D5A7721CD63 /* ServerStore.swift in Sources */,
 				83ABE776700156874DC12B96 /* Settings.swift in Sources */,
 				185C0BA9BC34035DE11FB243 /* StatusMenu.swift in Sources */,
@@ -384,6 +391,7 @@
 			files = (
 				4B083E461F38EEA8A394FDBB /* IntegrationTests.swift in Sources */,
 				A5AEC612705828257B06D181 /* LoginItemTests.swift in Sources */,
+				3003D9D938E3D5ABB4851F04 /* NearbyDiscoveryTests.swift in Sources */,
 				3941514491B4FE45BCB822F4 /* RecoveryTests.swift in Sources */,
 				8D6EE81EAFA4C33518ABBB0E /* StatusMenuTests.swift in Sources */,
 			);

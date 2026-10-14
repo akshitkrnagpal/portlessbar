@@ -173,6 +173,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private var subscription: AnyCancellable?
     private var errorItem: NSMenuItem!
     private let emptyItem = NSMenuItem(title: "No servers registered", action: nil, keyEquivalent: "")
+    private var nearbyItems: [NSMenuItem] = []
+    private var displayedNearby: [NearbyRoute]?
+    private var displayedDiscoveryError: String?
 
     init(store: ServerStore, openSettings: @escaping () -> Void = {}) {
         self.store = store
@@ -186,7 +189,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         lan.selector.target = self
         lan.selector.action = #selector(selectLANMode(_:))
         rebuild()
-        subscription = store.objectWillChange.sink { [weak self] in
+        subscription = Publishers.Merge(store.objectWillChange, store.nearby.objectWillChange).sink { [weak self] in
             DispatchQueue.main.async { [weak self] in self?.updateState() }
         }
     }
@@ -194,6 +197,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         rebuild()
         store.setMenuOpen(true)
+        store.nearby.refresh()
         Task { await store.refreshInstallation(force: true); await store.refresh() }
     }
     func menuDidClose(_ menu: NSMenu) { store.setMenuOpen(false) }
@@ -207,6 +211,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func rebuild() {
         menu.removeAllItems()
+        nearbyItems = []
+        displayedNearby = nil
+        displayedDiscoveryError = nil
         for view in [header, lan] as [NSView] {
             let item = NSMenuItem()
             item.view = view
@@ -241,6 +248,32 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             emptyItem.isEnabled = false
             menu.insertItem(emptyItem, at: 3)
         }
+        emptyItem.title = store.nearby.routes.isEmpty ? "No servers registered" : "No local servers registered"
+        updateNearbyRoutes(at: 3 + max(1, names.count))
+    }
+
+    private func updateNearbyRoutes(at position: Int) {
+        let routes = store.nearby.routes
+        let error = store.nearby.error
+        guard routes != displayedNearby || error != displayedDiscoveryError else { return }
+        for item in nearbyItems { menu.removeItem(item) }
+        nearbyItems = []
+        displayedNearby = routes
+        displayedDiscoveryError = error
+        guard !routes.isEmpty || error != nil else { return }
+        nearbyItems = [.separator(), item("Nearby apps")]
+        for route in routes {
+            let row = item(route.title, action: #selector(openNearbyServer(_:)))
+            row.representedObject = route
+            row.toolTip = "\(route.url.absoluteString)\n\(route.address)"
+            nearbyItems.append(row)
+        }
+        if let error {
+            let row = item("Nearby apps unavailable", action: #selector(showError))
+            row.toolTip = error
+            nearbyItems.append(row)
+        }
+        for (offset, row) in nearbyItems.enumerated() { menu.insertItem(row, at: position + offset) }
     }
 
     private func updateState() {
@@ -278,10 +311,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func openServer(_ item: NSMenuItem) {
         if let hostname = item.representedObject as? String { store.open(hostname) }
     }
+    @objc private func openNearbyServer(_ item: NSMenuItem) {
+        if let route = item.representedObject as? NearbyRoute { NSWorkspace.shared.open(route.url) }
+    }
     @objc private func showSettings() { openSettings() }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func showError() {
-        guard let message = store.error ?? store.installationIssue ?? (store.supportsLAN == false ? ServerStore.unsupportedLANMessage : nil) else { return }
+        guard let message = store.error ?? store.installationIssue ?? store.nearby.error ?? (store.supportsLAN == false ? ServerStore.unsupportedLANMessage : nil) else { return }
         let alert = NSAlert()
         alert.messageText = "Portless needs attention"
         alert.informativeText = message
