@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/akshitkrnagpal/portlessbar/releases/latest"><strong>Download for macOS</strong></a> ·
+  <a href="https://www.youtube.com/watch?v=QpD_BkmKVFM">Watch the video</a> ·
   <a href="#get-started">Get started</a> ·
   <a href="https://github.com/akshitkrnagpal/portlessbar/issues">Support</a>
 </p>
