@@ -37,7 +37,7 @@
     <img src="Assets/LaunchVideo.jpg" width="640" alt="Watch the PortlessBar launch video on YouTube" />
   </a>
 </p>
-<p align="center"><a href="https://www.youtube.com/watch?v=QpD_BkmKVFM">Watch the 26-second launch video</a> · YC pitch parody</p>
+<p align="center"><a href="https://www.youtube.com/watch?v=QpD_BkmKVFM">Watch the 26-second launch video</a></p>
 
 ## Within reach
 
