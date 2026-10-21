@@ -32,6 +32,13 @@
 </p>
 <p align="center"><sub>Your Portless apps, right in the menu bar. Demo uses sample hostnames.</sub></p>
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=QpD_BkmKVFM">
+    <img src="Assets/LaunchVideo.jpg" width="640" alt="Watch the PortlessBar launch video on YouTube" />
+  </a>
+</p>
+<p align="center"><a href="https://www.youtube.com/watch?v=QpD_BkmKVFM">Watch the 26-second launch video</a> · YC pitch parody</p>
+
 ## Within reach
 
 - **Open apps in one click.** Your current Portless registrations appear as URLs under **On this device**. Pick one to open it in your default browser.
