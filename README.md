@@ -29,7 +29,7 @@
 <br />
 
 <p align="center">
-  <img src="Assets/Demo.png" width="360" alt="PortlessBar menu showing the proxy switch, sample local servers, and sample network servers" />
+  <img src="Assets/MenuBar.png" width="720" alt="PortlessBar menu open from the p_ item in the macOS menu bar, showing the proxy switch, sample local servers, and sample network servers" />
 </p>
 <p align="center"><sub>Your Portless apps, right in the menu bar. Demo uses sample hostnames.</sub></p>
 
