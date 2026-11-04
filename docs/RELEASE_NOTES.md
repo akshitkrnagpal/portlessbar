@@ -1,6 +1,16 @@
-# Unreleased
+# PortlessBar 0.4.1
 
-- Hide **On this network** entries that a remote proxy still advertises but no longer serves. Portless can leave an mDNS advert running after a route is removed ([vercel-labs/portless#373](https://github.com/vercel-labs/portless/issues/373)), which made the menu offer apps that opened to a 404. PortlessBar now checks each advert against the remote proxy’s active apps without sending a request to the app itself.
+Stop offering network apps that no longer exist.
+
+- Hide **On this network** entries that a remote proxy still advertises but no longer serves. Portless can leave an mDNS advert running after a route is removed ([vercel-labs/portless#373](https://github.com/vercel-labs/portless/issues/373)), which made the menu offer apps that opened to a 404. PortlessBar now checks each advert against the remote proxy’s active apps without sending a request to the app itself. Entries from proxies whose app list can’t be read still appear as before.
+
+Requires macOS 14 or newer and an existing Portless installation with its supported Node.js runtime. Tested with Portless 0.15.6. Network discovery requires Portless LAN mode on another Mac and Local Network access when macOS asks.
+
+The universal download supports Apple Silicon and Intel, is Developer ID signed and notarized by Apple, and includes a stapled notarization ticket. The finalized archive’s checksum is included in SHA256SUMS.txt. In-app updates use the existing Sparkle signing key.
+
+Licensed under Apache 2.0. PortlessBar is independent and is not affiliated with Vercel.
+
+Made with ❤️ by [akshit.io](https://akshit.io).
 
 # PortlessBar 0.4.0
 
