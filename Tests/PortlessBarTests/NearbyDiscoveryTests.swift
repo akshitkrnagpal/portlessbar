@@ -57,7 +57,8 @@ final class NearbyDiscoveryTests: XCTestCase {
         let endpoint = endpoint(port: 8080)
         let route = await NearbyProbe.find(endpoint, run: { arguments in
             XCTAssertTrue(arguments.contains("web.local:8080:192.168.1.165"))
-            XCTAssertTrue(arguments.contains("Host: portlessbar-discovery.invalid"))
+            XCTAssertTrue(arguments.contains("Host: portlessbar-discovery.local"))
+            XCTAssertTrue(arguments.contains("Accept: text/html"), "Portless lists active apps only on its HTML 404 page.")
             XCTAssertFalse(arguments.contains("--location"), "Discovery must not follow redirects to unrelated hosts.")
             return arguments.last!.hasPrefix("https:") ? CommandResult(status: 35, output: "TLS failed")
                 : CommandResult(status: 0, output: "HTTP/1.1 404 Not Found\r\nx-portless: 1\r\n")
@@ -66,6 +67,38 @@ final class NearbyDiscoveryTests: XCTestCase {
         XCTAssertEqual(route?.address, "192.168.1.165")
         let router = await NearbyProbe.find(endpoint, run: { _ in CommandResult(status: 0, output: "Server: router\r\n") })
         XCTAssertNil(router)
+    }
+
+    private func notFoundPage(_ names: [String]) -> String {
+        let list = names.isEmpty ? "<p class=\"empty\">No apps running.</p>"
+            : "<ul class=\"card\">" + names.map { "<li><a><span class=\"name\">\($0)</span></a></li>" }.joined() + "</ul>"
+        return "HTTP/2 404\r\nx-portless: 1\r\ncontent-type: text/html\r\n\r\n<p class=\"desc\">No app registered</p>\(list)"
+    }
+
+    func testActiveHostnamesComeFromThePortlessNotFoundPage() {
+        XCTAssertEqual(NearbyProbe.activeHostnames(CommandResult(status: 0, output: notFoundPage(["Toolstile.T3.local", "whoppah.t3.local"]))),
+                       ["toolstile.t3.local", "whoppah.t3.local"])
+        XCTAssertEqual(NearbyProbe.activeHostnames(CommandResult(status: 0, output: notFoundPage([]))), [])
+        XCTAssertNil(NearbyProbe.activeHostnames(CommandResult(status: 0, output: "HTTP/2 421\r\nx-portless: 1\r\n\r\nMisdirected")))
+        XCTAssertNil(NearbyProbe.activeHostnames(CommandResult(status: 0, output: "HTTP/2 404\r\nx-portless: 1\r\n\r\n{}")))
+        XCTAssertFalse(NearbyProbe.identifiesPortless(CommandResult(status: 0, output: "HTTP/1.1 200 OK\r\n\r\nx-portless: 1")),
+                       "Only response headers identify the proxy, not the page body.")
+    }
+
+    func testStaleAdvertIsHiddenWhenTheProxyNoLongerServesIt() async {
+        let page = notFoundPage(["toolstile.t3.local"])
+        let stale = await NearbyProbe.find(endpoint("www.toolstile.local"), run: { _ in
+            CommandResult(status: 0, output: page)
+        })
+        XCTAssertNil(stale)
+        let live = await NearbyProbe.find(endpoint("toolstile.t3.local"), run: { _ in
+            CommandResult(status: 0, output: page)
+        })
+        XCTAssertEqual(live?.url.absoluteString, "https://toolstile.t3.local:1355")
+        let unreadable = await NearbyProbe.find(endpoint(), run: { _ in
+            CommandResult(status: 0, output: "HTTP/2 421\r\nx-portless: 1\r\n\r\nMisdirected")
+        })
+        XCTAssertNotNil(unreadable, "Keep routes from proxies whose page can't be read rather than hiding them.")
     }
 
     @MainActor

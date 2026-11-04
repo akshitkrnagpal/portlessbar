@@ -88,12 +88,43 @@ enum NetworkAddress {
 enum NearbyProbe {
     typealias Runner = @Sendable ([String]) async throws -> CommandResult
 
+    /// A single-label `.local` name has no parent route, so Portless answers with its own 404 page,
+    /// which lists the active apps, and never forwards the request to a development app.
+    static let discoveryHost = "portlessbar-discovery.local"
+
+    private static func split(_ output: String) -> (headers: [String], body: String) {
+        let normalized = output.replacingOccurrences(of: "\r\n", with: "\n")
+        guard let range = normalized.range(of: "\n\n") else {
+            return (normalized.components(separatedBy: "\n"), "")
+        }
+        return (normalized[..<range.lowerBound].components(separatedBy: "\n"), String(normalized[range.upperBound...]))
+    }
+
     static func identifiesPortless(_ result: CommandResult) -> Bool {
-        result.status == 0 && result.output.components(separatedBy: .newlines).contains { line in
+        result.status == 0 && split(result.output).headers.contains { line in
             let header = line.split(separator: ":", maxSplits: 1)
             return header.count == 2 && header[0].lowercased() == "x-portless"
                 && header[1].trimmingCharacters(in: .whitespacesAndNewlines) == "1"
         }
+    }
+
+    /// Hostnames listed on Portless's 404 page, or nil when the response is not that page.
+    /// A proxy keeps advertising a route after removing it when its mDNS publisher leaks
+    /// (vercel-labs/portless#373), so the advert alone does not prove the route is live.
+    static func activeHostnames(_ result: CommandResult) -> Set<String>? {
+        let (headers, body) = split(result.output)
+        guard let status = headers.first?.split(separator: " ").dropFirst().first, status == "404" else { return nil }
+        if body.contains("<p class=\"empty\">") { return [] }
+        let marker = "<span class=\"name\">"
+        var names = Set<String>()
+        var rest = Substring(body)
+        while let open = rest.range(of: marker) {
+            rest = rest[open.upperBound...]
+            guard let close = rest.range(of: "</span>") else { break }
+            names.insert(rest[..<close.lowerBound].lowercased())
+            rest = rest[close.upperBound...]
+        }
+        return names.isEmpty ? nil : names
     }
 
     static func find(_ endpoint: BonjourEndpoint) async -> NearbyRoute? {
@@ -109,13 +140,15 @@ enum NearbyProbe {
             for address in endpoint.addresses {
                 guard !Task.isCancelled else { return nil }
                 let target = address.contains(":") ? "[\(address)]" : address
-                let arguments = ["--disable", "--noproxy", "*", "--silent", "--head", "--insecure", "--max-time", "2",
+                let arguments = ["--disable", "--noproxy", "*", "--silent", "--include", "--insecure", "--max-time", "2",
                                  "--resolve", "\(endpoint.hostname):\(endpoint.port):\(target)",
-                                 // Identify the proxy without forwarding a request to the development app.
-                                 "--header", "Host: portlessbar-discovery.invalid", url.absoluteString]
-                if let result = try? await run(arguments), identifiesPortless(result) {
-                    return NearbyRoute(url: url, address: address)
-                }
+                                 // Ask the proxy itself, without forwarding a request to the development app.
+                                 "--header", "Host: \(discoveryHost)", "--header", "Accept: text/html",
+                                 url.absoluteString]
+                guard let result = try? await run(arguments), identifiesPortless(result) else { continue }
+                // Hide stale adverts. Keep the route when the page can't be read, e.g. an older proxy.
+                if let active = activeHostnames(result), !active.contains(endpoint.hostname) { return nil }
+                return NearbyRoute(url: url, address: address)
             }
         }
         return nil
