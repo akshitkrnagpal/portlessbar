@@ -24,7 +24,7 @@ To verify native Bonjour discovery against another Mac running Portless with `--
 PORTLESS_TEST_BONJOUR=1 swift test --filter NearbyDiscoveryTests/testLiveBonjourDiscovery
 ```
 
-This optional check browses advertised web services and probes their Portless header. The regular discovery tests use fixtures and do not access your network.
+This optional check browses advertised web services and checks each one against the remote proxy’s list of active apps. The regular discovery tests use fixtures and do not access your network.
 
 Keep pull requests focused. Include the behavior changed and how it was verified. Update the README and release notes for user-facing changes. For UI changes, include screenshots at light and dark appearance when relevant.
 

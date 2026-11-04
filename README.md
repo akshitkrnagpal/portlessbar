@@ -92,7 +92,7 @@ Tested with **Portless 0.8.0, 0.15.3 and 0.15.6**. Integration uses Portless's s
 
 LAN mode needs a Portless version that has LAN mode; it was tested with 0.15.6. Turning LAN mode off returns to `.localhost`, so set a custom TLD again in Portless.
 
-Nearby discovery was tested against a Portless LAN proxy on another Mac. It uses the Bonjour web service records that Portless publishes on macOS. Portless on Linux currently publishes address records only, so its routes cannot be enumerated this way. Nearby entries refresh automatically and disappear when their advertisements are withdrawn or their proxies stop responding.
+Nearby discovery was tested against a Portless LAN proxy on another Mac. It uses the Bonjour web service records that Portless publishes on macOS. Portless on Linux currently publishes address records only, so its routes cannot be enumerated this way. Nearby entries refresh automatically and disappear when their advertisements are withdrawn, their proxies stop responding, or the remote proxy no longer serves that route.
 
 If Portless or its supported Node.js runtime is missing, the menu shows setup instructions and disables the proxy controls. Network mode is disabled for older CLI versions before a running proxy is stopped. Proxy identity is independent of package-manager paths: PortlessBar checks that the saved PID owns the listening socket and that the service responds with Portless's identifying header. Existing proxies remain controllable after their original launcher or package directory disappears, provided a working Portless CLI is available for lifecycle commands.
 

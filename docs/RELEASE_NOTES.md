@@ -1,3 +1,7 @@
+# Unreleased
+
+- Hide **On this network** entries that a remote proxy still advertises but no longer serves. Portless can leave an mDNS advert running after a route is removed ([vercel-labs/portless#373](https://github.com/vercel-labs/portless/issues/373)), which made the menu offer apps that opened to a 404. PortlessBar now checks each advert against the remote proxy’s active apps without sending a request to the app itself.
+
 # PortlessBar 0.4.0
 
 Find Portless apps across your network and configure your proxy from a dedicated settings window.
